@@ -10,10 +10,14 @@ conecta a servidores mediante el protocolo **Xtream Codes**. Pensado para una ex
 ## Características
 
 Disponible en el MVP actual:
-- Login Xtream (servidor, usuario, contraseña) con sesión persistente.
-- Listado de **TV en directo** por categorías, con orden "deportes primero".
-- **Favoritos** de canales (mantener pulsado en una tarjeta).
-- Reproducción con **Media3 / ExoPlayer**.
+- **Selector de perfiles** sencillo (varios servidores Xtream guardados; elegir = entrar).
+- Pantalla **solo deporte**: filtra automáticamente los canales de deporte/fútbol y oculta el resto.
+- **Deduplicación por calidad**: las múltiples versiones del mismo canal (4K/FHD/HD/SD) se agrupan en un único canal lógico.
+- **Filtro de calidad** con chips `Auto · 4K · FHD · HD · SD · Todas`.
+- **Calidad automática según la red** (modo Auto): elige la mejor variante que cabe en tu ancho de banda y baja de calidad sola si detecta cortes.
+- **Indicador de transferencia** en el reproductor (Mbps en vivo + resolución) para confirmar que está descargando.
+- **Pre-buffering** ampliado para suavizar la reproducción IPTV.
+- **Favoritos** (mantener pulsado una tarjeta).
 - UI con **Jetpack Compose for TV** y navegación por mando.
 
 ## Stack
@@ -48,14 +52,14 @@ Por línea de comandos (requiere JDK 17 y el Android SDK con `local.properties` 
 ## Roadmap
 
 - [ ] **EPG / Guía** de programación (`get_short_epg`, `get_simple_data_table`).
-- [ ] **VOD / Películas** y **Series** (con "continuar viendo").
-- [ ] Historial y "añadido recientemente".
-- [ ] Búsqueda y sección/atajos de deportes.
+- [ ] Búsqueda de canales y mejoras en la detección de deportes/fútbol.
+- [ ] Recordar la última calidad por canal y mejorar la lógica de auto-bajada.
 - [ ] Soporte de **catch-up / timeshift**.
 - [ ] Decodificación ampliada con la **extensión FFmpeg de Media3** (códecs MPEG-TS poco comunes;
       requiere compilar la extensión con el NDK).
 - [ ] Chromecast opcional (desacoplado para no depender de Google Play Services en Fire TV).
-- [ ] Múltiples perfiles y cifrado de credenciales en reposo.
+- [ ] Cifrado de credenciales en reposo.
+- [ ] (Opcional) VOD / Películas y Series, si se decide ampliar más allá del deporte.
 
 ## Aviso legal
 

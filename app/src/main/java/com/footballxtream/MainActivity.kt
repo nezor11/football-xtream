@@ -1,6 +1,5 @@
 package com.footballxtream
 
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,27 +12,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.footballxtream.ui.RootViewModel
 import com.footballxtream.ui.StartState
-import com.footballxtream.ui.live.LiveScreen
-import com.footballxtream.ui.login.LoginScreen
+import com.footballxtream.ui.channels.ChannelsScreen
 import com.footballxtream.ui.player.PlayerScreen
+import com.footballxtream.ui.profiles.AddProfileScreen
+import com.footballxtream.ui.profiles.ProfilesScreen
 import com.footballxtream.ui.theme.FootballXtreamTheme
 
 object Routes {
-    const val LOGIN = "login"
-    const val LIVE = "live"
-    const val PLAYER = "player/{streamId}?title={title}"
-
-    fun player(streamId: Int, title: String): String =
-        "player/$streamId?title=${Uri.encode(title)}"
+    const val PROFILES = "profiles"
+    const val ADD_PROFILE = "add_profile"
+    const val CHANNELS = "channels"
+    const val PLAYER = "player"
 }
 
 class MainActivity : ComponentActivity() {
@@ -59,59 +55,44 @@ private fun AppRoot() {
         contentAlignment = Alignment.Center,
     ) {
         when (startState) {
-            StartState.LOADING -> Text(
-                text = "Cargando…",
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            StartState.AUTHENTICATED -> AppNavigation(startAtLive = true)
-            StartState.NEEDS_LOGIN -> AppNavigation(startAtLive = false)
+            StartState.LOADING -> Text("Cargando…", color = MaterialTheme.colorScheme.onBackground)
+            StartState.HAS_PROFILES -> AppNavigation(start = Routes.PROFILES)
+            StartState.NO_PROFILES -> AppNavigation(start = Routes.ADD_PROFILE)
         }
     }
 }
 
 @Composable
-private fun AppNavigation(startAtLive: Boolean) {
+private fun AppNavigation(start: String) {
     val navController = rememberNavController()
 
-    NavHost(
-        navController = navController,
-        startDestination = if (startAtLive) Routes.LIVE else Routes.LOGIN,
-    ) {
-        composable(Routes.LOGIN) {
-            LoginScreen(
-                onLoggedIn = {
-                    navController.navigate(Routes.LIVE) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
+    NavHost(navController = navController, startDestination = start) {
+
+        composable(Routes.PROFILES) {
+            ProfilesScreen(
+                onProfileSelected = { navController.navigate(Routes.CHANNELS) },
+                onAddProfile = { navController.navigate(Routes.ADD_PROFILE) },
+            )
+        }
+
+        composable(Routes.ADD_PROFILE) {
+            AddProfileScreen(
+                onSaved = {
+                    navController.navigate(Routes.CHANNELS) {
+                        popUpTo(Routes.ADD_PROFILE) { inclusive = true }
                     }
                 },
             )
         }
 
-        composable(Routes.LIVE) {
-            LiveScreen(
-                onChannelSelected = { channel ->
-                    navController.navigate(Routes.player(channel.streamId, channel.name))
-                },
+        composable(Routes.CHANNELS) {
+            ChannelsScreen(
+                onPlay = { navController.navigate(Routes.PLAYER) },
             )
         }
 
-        composable(
-            route = Routes.PLAYER,
-            arguments = listOf(
-                navArgument("streamId") { type = NavType.IntType },
-                navArgument("title") {
-                    type = NavType.StringType
-                    defaultValue = ""
-                },
-            ),
-        ) { backStackEntry ->
-            val streamId = backStackEntry.arguments?.getInt("streamId") ?: 0
-            val title = backStackEntry.arguments?.getString("title").orEmpty()
-            PlayerScreen(
-                streamId = streamId,
-                title = title,
-                onBack = { navController.popBackStack() },
-            )
+        composable(Routes.PLAYER) {
+            PlayerScreen(onBack = { navController.popBackStack() })
         }
     }
 }

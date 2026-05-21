@@ -1,4 +1,4 @@
-package com.footballxtream.ui.login
+package com.footballxtream.ui.profiles
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,17 +22,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import com.footballxtream.R
 import com.footballxtream.ui.components.TvTextField
 
 @Composable
-fun LoginScreen(
-    onLoggedIn: () -> Unit,
-    viewModel: LoginViewModel = viewModel(factory = LoginViewModel.Factory),
+fun AddProfileScreen(
+    onSaved: () -> Unit,
+    viewModel: AddProfileViewModel = viewModel(factory = AddProfileViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val serverFocus = remember { FocusRequester() }
-
     LaunchedEffect(Unit) { serverFocus.requestFocus() }
 
     Column(
@@ -45,7 +42,7 @@ fun LoginScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text(
-            text = stringResource(R.string.login_title),
+            text = "Conecta tu servidor Xtream",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -55,7 +52,7 @@ fun LoginScreen(
         TvTextField(
             value = state.server,
             onValueChange = viewModel::onServerChange,
-            label = stringResource(R.string.login_server),
+            label = "URL del servidor (http://host:puerto)",
             modifier = fieldModifier,
             keyboardType = KeyboardType.Uri,
             focusRequester = serverFocus,
@@ -63,13 +60,13 @@ fun LoginScreen(
         TvTextField(
             value = state.username,
             onValueChange = viewModel::onUsernameChange,
-            label = stringResource(R.string.login_username),
+            label = "Usuario",
             modifier = fieldModifier,
         )
         TvTextField(
             value = state.password,
             onValueChange = viewModel::onPasswordChange,
-            label = stringResource(R.string.login_password),
+            label = "Contraseña",
             modifier = fieldModifier,
             isPassword = true,
             keyboardType = KeyboardType.Password,
@@ -77,28 +74,19 @@ fun LoginScreen(
         TvTextField(
             value = state.name,
             onValueChange = viewModel::onNameChange,
-            label = stringResource(R.string.login_profile_name),
+            label = "Nombre del perfil (opcional)",
             modifier = fieldModifier,
         )
 
         if (state.error != null) {
-            Text(
-                text = state.error.orEmpty(),
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Text(text = state.error.orEmpty(), color = MaterialTheme.colorScheme.primary)
         }
 
         Button(
-            onClick = { viewModel.connect(onLoggedIn) },
+            onClick = { viewModel.save(onSaved) },
             enabled = state.canSubmit,
         ) {
-            Text(
-                text = if (state.isConnecting) {
-                    stringResource(R.string.login_connecting)
-                } else {
-                    stringResource(R.string.login_connect)
-                },
-            )
+            Text(text = if (state.isConnecting) "Conectando…" else "Guardar y entrar")
         }
     }
 }

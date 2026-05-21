@@ -1,4 +1,4 @@
-package com.footballxtream.ui.login
+package com.footballxtream.ui.profiles
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -8,7 +8,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballxtream.FootballXtreamApp
 import com.footballxtream.data.XtreamRepository
-import com.footballxtream.data.local.ProfileStore
+import com.footballxtream.data.local.ProfileDao
+import com.footballxtream.data.local.ProfileEntity
 import com.footballxtream.model.XtreamProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class LoginUiState(
+data class AddProfileUiState(
     val name: String = "",
     val server: String = "",
     val username: String = "",
@@ -29,26 +30,26 @@ data class LoginUiState(
             password.isNotBlank() && !isConnecting
 }
 
-class LoginViewModel(
-    private val profileStore: ProfileStore,
+class AddProfileViewModel(
+    private val profileDao: ProfileDao,
     private val repository: XtreamRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(LoginUiState())
-    val state: StateFlow<LoginUiState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(AddProfileUiState())
+    val state: StateFlow<AddProfileUiState> = _state.asStateFlow()
 
     fun onNameChange(value: String) = _state.update { it.copy(name = value) }
     fun onServerChange(value: String) = _state.update { it.copy(server = value, error = null) }
     fun onUsernameChange(value: String) = _state.update { it.copy(username = value, error = null) }
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, error = null) }
 
-    fun connect(onSuccess: () -> Unit) {
+    fun save(onSaved: () -> Unit) {
         val current = _state.value
         if (!current.canSubmit) return
         _state.update { it.copy(isConnecting = true, error = null) }
 
         val profile = XtreamProfile(
-            name = current.name.ifBlank { current.server },
+            name = current.name.ifBlank { current.username },
             serverUrl = current.server,
             username = current.username,
             password = current.password,
@@ -57,10 +58,17 @@ class LoginViewModel(
         viewModelScope.launch {
             repository.login(profile)
                 .onSuccess {
-                    profileStore.save(profile)
-                    onSuccess()
+                    profileDao.upsert(
+                        ProfileEntity(
+                            name = profile.name,
+                            serverUrl = profile.serverUrl,
+                            username = profile.username,
+                            password = profile.password,
+                        ),
+                    )
+                    onSaved()
                 }
-                .onFailure { error ->
+                .onFailure {
                     _state.update {
                         it.copy(
                             isConnecting = false,
@@ -75,7 +83,7 @@ class LoginViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as FootballXtreamApp).container
-                LoginViewModel(container.profileStore, container.repository)
+                AddProfileViewModel(container.profileDao, container.repository)
             }
         }
     }
