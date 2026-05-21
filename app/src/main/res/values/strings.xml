@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Football Xtream</string>
+
+    <string name="login_title">Conecta tu servidor Xtream</string>
+    <string name="login_profile_name">Nombre del perfil</string>
+    <string name="login_server">URL del servidor (http://host:puerto)</string>
+    <string name="login_username">Usuario</string>
+    <string name="login_password">Contraseña</string>
+    <string name="login_connect">Conectar</string>
+    <string name="login_connecting">Conectando…</string>
+    <string name="login_error">No se pudo conectar. Revisa los datos.</string>
+
+    <string name="live_title">TV en directo</string>
+    <string name="loading">Cargando…</string>
+    <string name="retry">Reintentar</string>
+    <string name="favorites">Favoritos</string>
+    <string name="empty_channels">No hay canales disponibles.</string>
+</resources>
