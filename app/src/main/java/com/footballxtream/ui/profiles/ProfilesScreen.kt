@@ -17,8 +17,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -44,7 +44,7 @@ fun ProfilesScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 color = colors.onBackground,
             )
-            TvLazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 items(profiles) { profile ->
                     ProfileCard(
                         profile = profile,
