@@ -82,7 +82,7 @@ class ContentRepository(private val cacheDir: File) {
      * loads skip both the 11 MB download and the parse of thousands of entries (near-instant).
      */
     private fun loadM3uGroups(url: String, forceRefresh: Boolean): List<ChannelGroup> {
-        val cacheFile = File(cacheDir, "groups_${url.hashCode()}.json")
+        val cacheFile = File(cacheDir, "groups_v$CACHE_VERSION-${url.hashCode()}.json")
         if (!forceRefresh && cacheFile.exists() &&
             System.currentTimeMillis() - cacheFile.lastModified() < CACHE_TTL_MS
         ) {
@@ -116,5 +116,6 @@ class ContentRepository(private val cacheDir: File) {
     private companion object {
         const val TAG = "FXContent"
         const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
+        const val CACHE_VERSION = 2 // bump when parsing/filtering/grouping logic changes
     }
 }

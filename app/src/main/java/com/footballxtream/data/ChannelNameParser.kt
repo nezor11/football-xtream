@@ -30,19 +30,49 @@ object ChannelNameParser {
     private val multiSpace = Regex("""\s{2,}""")
 
     private val sportsKeywords = listOf(
-        "sport", "deporte", "futbol", "fútbol", "football", "soccer", "espn", "dazn",
-        "bein", "laliga", "la liga", "liga", "premier", "champions", "uefa", "europa league",
-        "copa", "bundesliga", "serie a", "ligue 1", "eredivisie", "mls", "fifa", "gol", "goles",
-        "movistar deportes", "movistar liga", "m. liga", "m liga", "nba", "nfl", "ufc", "boxing",
-        "boxeo", "f1", "formula 1", "fórmula 1", "motogp", "tennis", "tenis", "golf", "rugby",
-        "eurosport", "tudn", "fox sports", "golf", "sky sport",
+        // Generic "sport" in many languages
+        "sport", "deporte", "esporte", "esport", "spor", "sportv", "رياضة", "رياضي", "اسبور",
+        "спорт", "체육", "运动", "體育",
+        // Football / soccer (multi-language)
+        "futbol", "fútbol", "football", "soccer", "fußball", "fussball", "calcio", "futebol",
+        "voetbal", "fudbal", "ποδόσφαιρο", "كرة",
+        // Leagues & competitions
+        "laliga", "la liga", "liga", "ligue", "premier league", "championship", "bundesliga",
+        "eredivisie", "serie a", "serie b", "primeira", "champions", "uefa", "europa league",
+        "conference league", "copa", "libertadores", "sudamericana", "fa cup", "efl", "mls",
+        "super lig", "jupiler", "superliga", "eliteserien", "allsvenskan", "fifa", "uefa",
+        // Sports channel brands
+        "dazn", "bein", "espn", "fox sport", "sky sport", "tnt sport", "bt sport",
+        "movistar deport", "movistar liga", "movistar campeones", "movistar laliga", "gol ",
+        "goltv", "eurosport", "tudn", "tyc", "ssc ", "rmc sport", "canal+ sport", "canal plus sport",
+        "supersport", "ssport", "digi sport", "arena sport", "sportklub", "nova sport", "sport tv",
+        "sport1", "sportdigital", "premier sport", "viaplay", "setanta", "astro sport", "elclasico",
+        "sportitalia", "primesport",
+        // Basketball
+        "baloncesto", "basket", "basketball", "nba", "acb", "euroleague", "euroliga", "basquet",
+        // Tennis
+        "tennis", "tenis", "atp", "wta", "roland garros", "wimbledon",
+        // Motorsport
+        "f1 ", "formula 1", "fórmula 1", "formula1", "motogp", "moto gp", "nascar", "indycar",
+        "wrc", "dakar", "superbike", "motor",
+        // US / combat sports
+        "nfl", "nhl", "mlb", "ufc", "wwe", "boxing", "boxeo", "boxe", "mma", "wrestling", "fight",
+        "combat", "lucha",
+        // Other sports
+        "rugby", "cricket", "golf", "ciclismo", "cycling", "hockey", "handball", "balonmano",
+        "voleibol", "volleyball", "volley", "atletismo", "athletics", "padel", "pádel", "snooker",
+        "darts", "racing", "olympic", "olimpic", "juegos olimpicos", "extreme",
     )
 
     private val footballKeywords = listOf(
-        "futbol", "fútbol", "football", "soccer", "laliga", "la liga", "liga",
-        "premier", "champions", "uefa", "europa league", "copa", "bundesliga",
-        "serie a", "ligue 1", "eredivisie", "mls", "fifa", "gol", "goles",
-        "movistar liga", "dazn laliga", "bein", "tudn",
+        "futbol", "fútbol", "football", "soccer", "fußball", "fussball", "calcio", "futebol",
+        "voetbal", "fudbal", "ποδόσφαιρο",
+        "laliga", "la liga", "premier league", "championship", "bundesliga", "eredivisie",
+        "serie a", "serie b", "primeira liga", "ligue 1", "ligue 2",
+        "champions", "uefa", "europa league", "conference league", "copa del rey", "copa",
+        "libertadores", "sudamericana", "fa cup", "efl", "mls", "super lig", "jupiler", "fifa",
+        "bein sport", "dazn laliga", "movistar liga", "movistar campeones", "movistar laliga",
+        "gol ", "goltv", "tudn", "premier sport",
     )
 
     fun quality(rawName: String): Quality {
