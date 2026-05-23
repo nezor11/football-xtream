@@ -43,15 +43,15 @@ class PlayerViewModel(
     private val playerEngine: PlayerEngine,
 ) : ViewModel() {
 
-    private val group: ChannelGroup? = playbackSession.current
-
-    val canPlay: Boolean = group != null
+    val canPlay: Boolean = playbackSession.current != null
 
     val player: ExoPlayer = playerEngine.build()
 
     private val _ui = MutableStateFlow(PlayerUiState())
     val ui: StateFlow<PlayerUiState> = _ui.asStateFlow()
 
+    private var qualityMode: QualityMode = QualityMode.AUTO
+    private var currentGroup: ChannelGroup? = null
     private var currentQuality: Quality = Quality.UNKNOWN
     private var rebufferCount = 0
     private var hasStartedOnce = false
@@ -65,7 +65,7 @@ class PlayerViewModel(
                     rebufferCount = 0
                 }
                 Player.STATE_BUFFERING -> {
-                    if (hasStartedOnce && _ui.value.autoMode) {
+                    if (hasStartedOnce && qualityMode == QualityMode.AUTO) {
                         rebufferCount++
                         if (rebufferCount >= 3) downshift()
                     }
@@ -75,55 +75,73 @@ class PlayerViewModel(
     }
 
     init {
-        val g = group
-        if (g != null) {
+        val first = playbackSession.current
+        if (first != null) {
+            player.addListener(listener)
             viewModelScope.launch {
-                val mode = settingsStore.qualityMode.first()
-                val variant = chooseVariant(g, mode)
-                currentQuality = variant.quality
-                _ui.update {
-                    it.copy(
-                        channelName = g.displayName,
-                        qualityLabel = variant.quality.label,
-                        autoMode = mode == QualityMode.AUTO,
-                    )
-                }
-                player.addListener(listener)
-                playVariant(g, variant.quality)
+                qualityMode = settingsStore.qualityMode.first()
+                _ui.update { it.copy(autoMode = qualityMode == QualityMode.AUTO) }
+                playGroup(first)
                 pollStats()
             }
         }
     }
 
-    private fun playVariant(g: ChannelGroup, quality: Quality) {
-        val variant = g.variantFor(quality) ?: g.bestVariant()
+    fun nextChannel() {
+        val group = playbackSession.next() ?: return
+        viewModelScope.launch { playGroup(group) }
+    }
+
+    fun previousChannel() {
+        val group = playbackSession.previous() ?: return
+        viewModelScope.launch { playGroup(group) }
+    }
+
+    private suspend fun playGroup(group: ChannelGroup) {
+        currentGroup = group
+        rebufferCount = 0
+        hasStartedOnce = false
+        val variant = chooseVariant(group, qualityMode)
+        currentQuality = variant.quality
+        _ui.update {
+            it.copy(
+                channelName = group.displayName,
+                qualityLabel = variant.quality.label,
+                isBuffering = true,
+            )
+        }
+        playVariant(group, variant.quality)
+    }
+
+    private fun playVariant(group: ChannelGroup, quality: Quality) {
+        val variant = group.variantFor(quality) ?: group.bestVariant()
         player.setMediaItem(MediaItem.fromUri(variant.channel.streamUrl))
         player.prepare()
         player.playWhenReady = true
     }
 
     private fun downshift() {
-        val g = group ?: return
-        val lower = g.variants.firstOrNull { it.quality.rank < currentQuality.rank } ?: return
+        val group = currentGroup ?: return
+        val lower = group.variants.firstOrNull { it.quality.rank < currentQuality.rank } ?: return
         rebufferCount = 0
         currentQuality = lower.quality
         _ui.update { it.copy(qualityLabel = lower.quality.label) }
-        playVariant(g, lower.quality)
+        playVariant(group, lower.quality)
     }
 
-    private suspend fun chooseVariant(g: ChannelGroup, mode: QualityMode) =
+    private suspend fun chooseVariant(group: ChannelGroup, mode: QualityMode) =
         when {
             mode.fixedQuality != null ->
-                g.variantFor(mode.fixedQuality!!) ?: g.variantAtOrBelow(mode.fixedQuality!!)
-            mode == QualityMode.ALL -> g.bestVariant()
+                group.variantFor(mode.fixedQuality!!) ?: group.variantAtOrBelow(mode.fixedQuality!!)
+            mode == QualityMode.ALL -> group.bestVariant()
             else -> {
                 val bandwidth = maxOf(settingsStore.bandwidthBps(), playerEngine.bitrateEstimateBps())
                 if (bandwidth <= 0L) {
-                    g.variantAtOrBelow(Quality.FHD)
+                    group.variantAtOrBelow(Quality.FHD)
                 } else {
                     val budget = (bandwidth * 0.8).toLong()
-                    g.variants.firstOrNull { it.quality.typicalBitrateBps <= budget }
-                        ?: g.variants.last()
+                    group.variants.firstOrNull { it.quality.typicalBitrateBps <= budget }
+                        ?: group.variants.last()
                 }
             }
         }

@@ -97,7 +97,9 @@ class ChannelsViewModel(
     }
 
     fun play(group: ChannelGroup, onReady: () -> Unit) {
-        playbackSession.current = group
+        val content = uiState.value as? ChannelsUiState.Content ?: return
+        val playlist = content.rows.flatMap { it.groups }
+        playbackSession.start(playlist, playlist.indexOf(group).coerceAtLeast(0))
         onReady()
     }
 
