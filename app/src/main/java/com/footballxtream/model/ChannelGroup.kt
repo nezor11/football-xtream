@@ -1,11 +1,15 @@
 package com.footballxtream.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ChannelVariant(
     val channel: LiveChannel,
     val quality: Quality,
 )
 
 /** A logical channel that bundles its per-quality stream variants. */
+@Serializable
 data class ChannelGroup(
     val key: String,
     val displayName: String,

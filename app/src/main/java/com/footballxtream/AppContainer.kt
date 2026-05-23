@@ -24,7 +24,7 @@ class AppContainer(context: Context) {
     val profileDao: ProfileDao = database.profileDao()
     val favoriteChannelDao: FavoriteChannelDao = database.favoriteChannelDao()
     val settingsStore: SettingsStore = SettingsStore(appContext)
-    val repository: ContentRepository = ContentRepository()
+    val repository: ContentRepository = ContentRepository(appContext.cacheDir)
     val playbackSession: PlaybackSession = PlaybackSession()
     val playerEngine: PlayerEngine = PlayerEngine(appContext, settingsStore)
 }

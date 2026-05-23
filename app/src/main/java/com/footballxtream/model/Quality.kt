@@ -1,9 +1,12 @@
 package com.footballxtream.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Stream quality tier parsed from a channel name. [typicalBitrateBps] is a rough estimate of the
  * bandwidth each tier needs, used by the Auto mode to pick a variant that fits the measured network.
  */
+@Serializable
 enum class Quality(
     val rank: Int,
     val label: String,

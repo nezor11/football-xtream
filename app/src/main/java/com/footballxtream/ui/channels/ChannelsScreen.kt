@@ -74,6 +74,7 @@ fun ChannelsScreen(
                 content = current,
                 favoriteIds = favoriteIds,
                 onQualitySelected = viewModel::selectQuality,
+                onReload = viewModel::reload,
                 onPlay = { group -> viewModel.play(group, onPlay) },
                 onToggleFavorite = viewModel::toggleFavorite,
             )
@@ -86,6 +87,7 @@ private fun ChannelsContent(
     content: ChannelsUiState.Content,
     favoriteIds: Set<Int>,
     onQualitySelected: (QualityMode) -> Unit,
+    onReload: () -> Unit,
     onPlay: (ChannelGroup) -> Unit,
     onToggleFavorite: (ChannelGroup) -> Unit,
 ) {
@@ -111,6 +113,7 @@ private fun ChannelsContent(
                     modifier = if (index == 0) Modifier.focusRequester(firstChipFocus) else Modifier,
                 )
             }
+            QualityChip(label = "↻ Recargar", selected = false, onClick = onReload)
         }
 
         if (content.rows.isEmpty()) {

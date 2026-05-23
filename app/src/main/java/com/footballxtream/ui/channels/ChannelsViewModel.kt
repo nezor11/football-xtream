@@ -67,15 +67,18 @@ class ChannelsViewModel(
         refresh()
     }
 
-    fun refresh() {
+    fun refresh(forceRefresh: Boolean = false) {
         load.value = Load.Loading
         viewModelScope.launch {
-            load.value = repository.loadLiveGroups().fold(
+            load.value = repository.loadLiveGroups(forceRefresh).fold(
                 onSuccess = { Load.Data(it) },
                 onFailure = { Load.Error("No se pudieron cargar los canales.") },
             )
         }
     }
+
+    /** Forces a fresh download, bypassing the M3U cache. */
+    fun reload() = refresh(forceRefresh = true)
 
     fun selectQuality(mode: QualityMode) {
         viewModelScope.launch { settingsStore.setQualityMode(mode) }

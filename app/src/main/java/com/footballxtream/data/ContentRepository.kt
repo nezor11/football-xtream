@@ -8,6 +8,10 @@ import com.footballxtream.model.LiveChannel
 import com.footballxtream.model.XtreamProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.File
 import java.io.IOException
 
 class XtreamAuthException : Exception("Autenticación rechazada por el servidor")
@@ -16,7 +20,7 @@ class XtreamAuthException : Exception("Autenticación rechazada por el servidor"
  * Single entry point for channel data. Holds the active source (Xtream API or an M3U playlist)
  * and exposes sports-grouped channels regardless of the source.
  */
-class ContentRepository {
+class ContentRepository(private val cacheDir: File) {
 
     private sealed interface Binding {
         data class Xtream(val profile: XtreamProfile, val api: XtreamApi) : Binding
@@ -25,6 +29,8 @@ class ContentRepository {
 
     @Volatile
     private var binding: Binding? = null
+
+    private val groupsJson = Json { ignoreUnknownKeys = true }
 
     // --- Restore a saved profile without a network round-trip ---
 
@@ -60,14 +66,34 @@ class ContentRepository {
 
     // --- Load the sports channel groups for the active source ---
 
-    suspend fun loadLiveGroups(): Result<List<ChannelGroup>> = withContext(Dispatchers.IO) {
-        runCatching {
-            when (val current = binding) {
-                is Binding.Xtream -> loadXtream(current)
-                is Binding.M3u -> ChannelGrouping.build(M3uParser.parse(XtreamClient.fetchText(current.url)))
-                null -> error("No active content source")
-            }
-        }.onFailure { Log.w(TAG, "loadLiveGroups failed", it) }
+    suspend fun loadLiveGroups(forceRefresh: Boolean = false): Result<List<ChannelGroup>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                when (val current = binding) {
+                    is Binding.Xtream -> loadXtream(current)
+                    is Binding.M3u -> loadM3uGroups(current.url, forceRefresh)
+                    null -> error("No active content source")
+                }
+            }.onFailure { Log.w(TAG, "loadLiveGroups failed", it) }
+        }
+
+    /**
+     * Sports channel groups for an M3U source. The parsed+grouped result is cached on disk so repeat
+     * loads skip both the 11 MB download and the parse of thousands of entries (near-instant).
+     */
+    private fun loadM3uGroups(url: String, forceRefresh: Boolean): List<ChannelGroup> {
+        val cacheFile = File(cacheDir, "groups_${url.hashCode()}.json")
+        if (!forceRefresh && cacheFile.exists() &&
+            System.currentTimeMillis() - cacheFile.lastModified() < CACHE_TTL_MS
+        ) {
+            runCatching { groupsJson.decodeFromString<List<ChannelGroup>>(cacheFile.readText()) }
+                .getOrNull()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { return it }
+        }
+        val groups = ChannelGrouping.build(M3uParser.parse(XtreamClient.fetchText(url)))
+        runCatching { cacheFile.writeText(groupsJson.encodeToString(groups)) }
+        return groups
     }
 
     private suspend fun loadXtream(binding: Binding.Xtream): List<ChannelGroup> {
@@ -89,5 +115,6 @@ class ContentRepository {
 
     private companion object {
         const val TAG = "FXContent"
+        const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
     }
 }
