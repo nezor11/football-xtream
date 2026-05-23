@@ -14,20 +14,12 @@ data class FavoriteChannelEntity(
     @PrimaryKey val streamId: Int,
     val name: String,
     val iconUrl: String?,
-    val categoryId: String?,
-    val epgChannelId: String?,
-    val number: Int?,
 ) {
-    fun toModel() = LiveChannel(streamId, name, iconUrl, categoryId, epgChannelId, number)
-
     companion object {
         fun from(channel: LiveChannel) = FavoriteChannelEntity(
             streamId = channel.streamId,
             name = channel.name,
             iconUrl = channel.iconUrl,
-            categoryId = channel.categoryId,
-            epgChannelId = channel.epgChannelId,
-            number = channel.number,
         )
     }
 }

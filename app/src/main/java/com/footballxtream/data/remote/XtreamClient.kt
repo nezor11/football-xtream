@@ -4,11 +4,20 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import retrofit2.Retrofit
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** Builds a [XtreamApi] bound to a given panel base URL. */
 object XtreamClient {
+
+    /**
+     * Player User-Agent. IPTV panels/CDNs gate by User-Agent: this provider's panel rejects the
+     * default OkHttp UA, and its stream CDN rejects browser UAs (401) — but a media-player UA like
+     * VLC is accepted everywhere (login, M3U and stream). Used for all requests, API and playback.
+     */
+    const val USER_AGENT: String = "VLC/3.0.20 LibVLC/3.0.20"
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -18,8 +27,15 @@ object XtreamClient {
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", USER_AGENT)
+                    .build()
+                chain.proceed(request)
+            }
             .build()
     }
 
@@ -43,5 +59,23 @@ object XtreamClient {
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
             .create(XtreamApi::class.java)
+    }
+
+    /** Blocking GET that returns the response body as text (uses the shared UA'd client). */
+    fun fetchText(url: String): String {
+        val request = Request.Builder().url(url.trim()).build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            return response.body?.string().orEmpty()
+        }
+    }
+
+    /** Reads only the first line of the response — cheap way to validate a (possibly huge) M3U. */
+    fun fetchFirstLine(url: String): String {
+        val request = Request.Builder().url(url.trim()).build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            return response.body?.source()?.readUtf8Line().orEmpty()
+        }
     }
 }

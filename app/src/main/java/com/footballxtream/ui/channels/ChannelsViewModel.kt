@@ -7,15 +7,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballxtream.FootballXtreamApp
-import com.footballxtream.data.ChannelNameParser
-import com.footballxtream.data.XtreamRepository
+import com.footballxtream.data.ContentRepository
 import com.footballxtream.data.local.FavoriteChannelDao
 import com.footballxtream.data.local.FavoriteChannelEntity
-import com.footballxtream.data.local.SettingsStore
-import com.footballxtream.model.ChannelCategory
 import com.footballxtream.model.ChannelGroup
-import com.footballxtream.model.ChannelVariant
-import com.footballxtream.model.LiveChannel
 import com.footballxtream.model.QualityMode
 import com.footballxtream.player.PlaybackSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,9 +33,9 @@ sealed interface ChannelsUiState {
 }
 
 class ChannelsViewModel(
-    private val repository: XtreamRepository,
+    private val repository: ContentRepository,
     private val favoriteDao: FavoriteChannelDao,
-    private val settingsStore: SettingsStore,
+    private val settingsStore: com.footballxtream.data.local.SettingsStore,
     private val playbackSession: PlaybackSession,
 ) : ViewModel() {
 
@@ -75,13 +70,10 @@ class ChannelsViewModel(
     fun refresh() {
         load.value = Load.Loading
         viewModelScope.launch {
-            val categories = repository.liveCategories()
-            val streams = repository.liveStreams()
-            load.value = if (categories.isSuccess && streams.isSuccess) {
-                Load.Data(buildGroups(streams.getOrThrow(), categories.getOrThrow()))
-            } else {
-                Load.Error("No se pudieron cargar los canales.")
-            }
+            load.value = repository.loadLiveGroups().fold(
+                onSuccess = { Load.Data(it) },
+                onFailure = { Load.Error("No se pudieron cargar los canales.") },
+            )
         }
     }
 
@@ -104,39 +96,6 @@ class ChannelsViewModel(
     fun play(group: ChannelGroup, onReady: () -> Unit) {
         playbackSession.current = group
         onReady()
-    }
-
-    private fun buildGroups(
-        streams: List<LiveChannel>,
-        categories: List<ChannelCategory>,
-    ): List<ChannelGroup> {
-        val categoryName: (String?) -> String? = { id ->
-            categories.firstOrNull { it.id == id }?.name
-        }
-
-        val sportsStreams = streams.filter { stream ->
-            ChannelNameParser.isSports(stream.name, categoryName(stream.categoryId))
-        }
-
-        return sportsStreams
-            .groupBy { ChannelNameParser.groupKey(it.name).ifBlank { it.name.lowercase() } }
-            .map { (key, channels) ->
-                val variants = channels
-                    .map { ChannelVariant(it, ChannelNameParser.quality(it.name)) }
-                    .sortedByDescending { it.quality.rank }
-                val representative = variants.first().channel
-                ChannelGroup(
-                    key = key,
-                    displayName = ChannelNameParser.baseName(representative.name)
-                        .ifBlank { representative.name },
-                    iconUrl = variants.firstNotNullOfOrNull { it.channel.iconUrl },
-                    isFootball = channels.any {
-                        ChannelNameParser.isFootball(it.name, categoryName(it.categoryId))
-                    },
-                    variants = variants,
-                )
-            }
-            .sortedBy { it.displayName.lowercase() }
     }
 
     private fun buildRows(

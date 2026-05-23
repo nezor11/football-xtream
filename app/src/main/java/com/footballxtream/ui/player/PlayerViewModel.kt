@@ -12,8 +12,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.footballxtream.FootballXtreamApp
-import com.footballxtream.data.StreamUrlBuilder
-import com.footballxtream.data.XtreamRepository
 import com.footballxtream.data.local.SettingsStore
 import com.footballxtream.model.ChannelGroup
 import com.footballxtream.model.Quality
@@ -43,13 +41,11 @@ class PlayerViewModel(
     private val playbackSession: PlaybackSession,
     private val settingsStore: SettingsStore,
     private val playerEngine: PlayerEngine,
-    repository: XtreamRepository,
 ) : ViewModel() {
 
     private val group: ChannelGroup? = playbackSession.current
-    private val profile = repository.currentProfile
 
-    val canPlay: Boolean = group != null && profile != null
+    val canPlay: Boolean = group != null
 
     val player: ExoPlayer = playerEngine.build()
 
@@ -80,7 +76,7 @@ class PlayerViewModel(
 
     init {
         val g = group
-        if (g != null && profile != null) {
+        if (g != null) {
             viewModelScope.launch {
                 val mode = settingsStore.qualityMode.first()
                 val variant = chooseVariant(g, mode)
@@ -93,17 +89,15 @@ class PlayerViewModel(
                     )
                 }
                 player.addListener(listener)
-                playVariantStream(g, variant.quality)
+                playVariant(g, variant.quality)
                 pollStats()
             }
         }
     }
 
-    private fun playVariantStream(g: ChannelGroup, quality: Quality) {
-        val p = profile ?: return
+    private fun playVariant(g: ChannelGroup, quality: Quality) {
         val variant = g.variantFor(quality) ?: g.bestVariant()
-        val url = StreamUrlBuilder.liveUrl(p, variant.channel.streamId)
-        player.setMediaItem(MediaItem.fromUri(url))
+        player.setMediaItem(MediaItem.fromUri(variant.channel.streamUrl))
         player.prepare()
         player.playWhenReady = true
     }
@@ -114,7 +108,7 @@ class PlayerViewModel(
         rebufferCount = 0
         currentQuality = lower.quality
         _ui.update { it.copy(qualityLabel = lower.quality.label) }
-        playVariantStream(g, lower.quality)
+        playVariant(g, lower.quality)
     }
 
     private suspend fun chooseVariant(g: ChannelGroup, mode: QualityMode) =
@@ -164,7 +158,6 @@ class PlayerViewModel(
                     container.playbackSession,
                     container.settingsStore,
                     container.playerEngine,
-                    container.repository,
                 )
             }
         }

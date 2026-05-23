@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballxtream.FootballXtreamApp
-import com.footballxtream.data.XtreamRepository
+import com.footballxtream.data.ContentRepository
 import com.footballxtream.data.local.ProfileDao
 import com.footballxtream.data.local.ProfileEntity
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,14 +17,18 @@ import kotlinx.coroutines.launch
 
 class ProfilesViewModel(
     private val profileDao: ProfileDao,
-    private val repository: XtreamRepository,
+    private val repository: ContentRepository,
 ) : ViewModel() {
 
     val profiles: StateFlow<List<ProfileEntity>> = profileDao.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun select(profile: ProfileEntity, onSelected: () -> Unit) {
-        repository.bind(profile.toModel())
+        if (profile.isM3u) {
+            repository.bindM3u(profile.m3uUrl)
+        } else {
+            repository.bindXtream(profile.toXtreamProfile())
+        }
         onSelected()
     }
 

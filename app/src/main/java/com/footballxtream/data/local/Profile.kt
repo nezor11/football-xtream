@@ -14,16 +14,27 @@ import kotlinx.coroutines.flow.Flow
 data class ProfileEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val serverUrl: String,
-    val username: String,
-    val password: String,
+    val type: String = ProfileType.XTREAM,
+    // Xtream fields (blank for M3U profiles):
+    val serverUrl: String = "",
+    val username: String = "",
+    val password: String = "",
+    // M3U field (blank for Xtream profiles):
+    val m3uUrl: String = "",
 ) {
-    fun toModel() = XtreamProfile(
+    val isM3u: Boolean get() = type == ProfileType.M3U
+
+    fun toXtreamProfile() = XtreamProfile(
         name = name,
         serverUrl = serverUrl,
         username = username,
         password = password,
     )
+}
+
+object ProfileType {
+    const val XTREAM = "XTREAM"
+    const val M3U = "M3U"
 }
 
 @Dao
@@ -34,9 +45,6 @@ interface ProfileDao {
 
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
-
-    @Query("SELECT * FROM profiles WHERE id = :id")
-    suspend fun byId(id: Long): ProfileEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(profile: ProfileEntity): Long

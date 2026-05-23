@@ -2,7 +2,7 @@ package com.footballxtream
 
 import android.content.Context
 import androidx.room.Room
-import com.footballxtream.data.XtreamRepository
+import com.footballxtream.data.ContentRepository
 import com.footballxtream.data.local.AppDatabase
 import com.footballxtream.data.local.FavoriteChannelDao
 import com.footballxtream.data.local.ProfileDao
@@ -24,7 +24,7 @@ class AppContainer(context: Context) {
     val profileDao: ProfileDao = database.profileDao()
     val favoriteChannelDao: FavoriteChannelDao = database.favoriteChannelDao()
     val settingsStore: SettingsStore = SettingsStore(appContext)
-    val repository: XtreamRepository = XtreamRepository()
+    val repository: ContentRepository = ContentRepository()
     val playbackSession: PlaybackSession = PlaybackSession()
     val playerEngine: PlayerEngine = PlayerEngine(appContext, settingsStore)
 }

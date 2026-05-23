@@ -14,10 +14,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -39,6 +46,7 @@ fun TvTextField(
 ) {
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    val focusManager = LocalFocusManager.current
     val borderColor = if (focused) colors.primary else colors.surfaceVariant
     val shape = RoundedCornerShape(10.dp)
 
@@ -64,6 +72,19 @@ fun TvTextField(
                 .fillMaxWidth()
                 .padding(top = 4.dp)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+                // Single-line TV fields must release focus on up/down so the D-pad can move
+                // between fields and reach the button (otherwise the field swallows the keys).
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.key) {
+                            Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+                            Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+                            else -> false
+                        }
+                    } else {
+                        false
+                    }
+                }
                 .onFocusChanged { focused = it.isFocused }
                 .background(colors.surface, shape)
                 .border(2.dp, borderColor, shape)
