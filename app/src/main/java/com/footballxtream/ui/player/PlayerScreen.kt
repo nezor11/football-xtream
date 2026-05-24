@@ -109,8 +109,8 @@ fun PlayerScreen(
         )
 
         Column(
-            modifier = Modifier.align(Alignment.TopStart).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             StatsOverlay(
                 channelName = ui.channelName,
@@ -162,13 +162,13 @@ private fun StatsOverlay(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xCC0A0E12))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .background(Color(0x990A0E12))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             text = parts.joinToString("  •  "),
-            style = MaterialTheme.typography.labelLarge,
-            color = if (isBuffering) MaterialTheme.colorScheme.primary else Color(0xFFE6EAEE),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isBuffering) MaterialTheme.colorScheme.primary else Color(0xCCE6EAEE),
         )
     }
 }
@@ -178,16 +178,16 @@ private fun EpgOverlay(now: String, next: String?, modifier: Modifier = Modifier
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xCC0A0E12))
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .background(Color(0x990A0E12))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             text = buildString {
                 append("Ahora: ").append(now)
                 if (!next.isNullOrBlank()) append("   ·   Luego: ").append(next)
             },
-            style = MaterialTheme.typography.labelMedium,
-            color = Color(0xFFE6EAEE),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xCCE6EAEE),
         )
     }
 }
