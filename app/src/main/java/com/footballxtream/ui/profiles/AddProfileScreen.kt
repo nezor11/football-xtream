@@ -42,11 +42,13 @@ import com.footballxtream.ui.components.TvTextField
 @Composable
 fun AddProfileScreen(
     onSaved: () -> Unit,
+    profileId: Long = -1L,
     viewModel: AddProfileViewModel = viewModel(factory = AddProfileViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = MaterialTheme.colorScheme
     val firstField = remember { FocusRequester() }
+    LaunchedEffect(profileId) { viewModel.load(profileId) }
     LaunchedEffect(state.mode) { runCatching { firstField.requestFocus() } }
 
     val fieldModifier = Modifier.fillMaxWidth()
@@ -72,7 +74,7 @@ fun AddProfileScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "Conecta tu lista",
+                text = if (state.isEditing) "Editar perfil" else "Conecta tu lista",
                 style = MaterialTheme.typography.headlineSmall,
                 color = colors.onSurface,
             )
@@ -158,7 +160,11 @@ fun AddProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = if (state.isConnecting) "Conectando…" else "Guardar y entrar",
+                    text = when {
+                        state.isConnecting -> "Conectando…"
+                        state.isEditing -> "Guardar cambios"
+                        else -> "Guardar y entrar"
+                    },
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )

@@ -27,6 +27,7 @@ data class AddProfileUiState(
     val m3uUrl: String = "",
     val isConnecting: Boolean = false,
     val error: String? = null,
+    val isEditing: Boolean = false,
 ) {
     val isM3u: Boolean get() = mode == ProfileType.M3U
 
@@ -46,6 +47,29 @@ class AddProfileViewModel(
     private val _state = MutableStateFlow(AddProfileUiState())
     val state: StateFlow<AddProfileUiState> = _state.asStateFlow()
 
+    // Non-null when editing an existing profile; drives update-in-place instead of insert.
+    private var editingId: Long? = null
+
+    /** Loads an existing profile into the form so it can be edited. No-op for a new profile. */
+    fun load(profileId: Long) {
+        if (profileId < 0 || editingId != null) return
+        viewModelScope.launch {
+            val p = profileDao.byId(profileId) ?: return@launch
+            editingId = p.id
+            _state.update {
+                it.copy(
+                    mode = p.type,
+                    name = p.name,
+                    server = p.serverUrl,
+                    username = p.username,
+                    password = p.password,
+                    m3uUrl = p.m3uUrl,
+                    isEditing = true,
+                )
+            }
+        }
+    }
+
     fun onModeChange(mode: String) = _state.update { it.copy(mode = mode, error = null) }
     fun onNameChange(value: String) = _state.update { it.copy(name = value) }
     fun onServerChange(value: String) = _state.update { it.copy(server = value, error = null) }
@@ -63,7 +87,7 @@ class AddProfileViewModel(
                 val url = current.m3uUrl.trim()
                 repository.validateM3u(url)
                     .onSuccess {
-                        profileDao.upsert(
+                        persist(
                             ProfileEntity(
                                 name = current.name.ifBlank { "Lista M3U" },
                                 type = ProfileType.M3U,
@@ -82,7 +106,7 @@ class AddProfileViewModel(
                 )
                 repository.validateXtream(profile)
                     .onSuccess {
-                        profileDao.upsert(
+                        persist(
                             ProfileEntity(
                                 name = profile.name,
                                 type = ProfileType.XTREAM,
@@ -96,6 +120,12 @@ class AddProfileViewModel(
                     .onFailure { fail("No se pudo conectar. Revisa servidor, usuario y contraseña.") }
             }
         }
+    }
+
+    // Update the existing row when editing (preserving its id); otherwise insert a new profile.
+    private suspend fun persist(entity: ProfileEntity) {
+        val id = editingId
+        if (id != null) profileDao.update(entity.copy(id = id)) else profileDao.upsert(entity)
     }
 
     private fun fail(message: String) {

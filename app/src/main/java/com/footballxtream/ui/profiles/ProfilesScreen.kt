@@ -1,5 +1,6 @@
 package com.footballxtream.ui.profiles
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,20 +11,29 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.tv.material3.Button
 import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -34,10 +44,12 @@ import com.footballxtream.ui.components.BrandHeader
 fun ProfilesScreen(
     onProfileSelected: () -> Unit,
     onAddProfile: () -> Unit,
+    onEditProfile: (Long) -> Unit,
     viewModel: ProfilesViewModel = viewModel(factory = ProfilesViewModel.Factory),
 ) {
     val profiles by viewModel.profiles.collectAsStateWithLifecycle()
     val colors = MaterialTheme.colorScheme
+    var menuProfile by remember { mutableStateOf<ProfileEntity?>(null) }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
@@ -57,7 +69,7 @@ fun ProfilesScreen(
                     ProfileCard(
                         profile = profile,
                         onClick = { viewModel.select(profile, onProfileSelected) },
-                        onLongClick = { viewModel.delete(profile) },
+                        onLongClick = { menuProfile = profile },
                     )
                 }
                 item {
@@ -66,10 +78,75 @@ fun ProfilesScreen(
             }
             if (profiles.isNotEmpty()) {
                 Text(
-                    text = "Mantén pulsado un perfil para eliminarlo",
+                    text = "Mantén pulsado un perfil para editarlo o eliminarlo",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                 )
+            }
+        }
+
+        menuProfile?.let { profile ->
+            ProfileActionMenu(
+                profile = profile,
+                onEdit = {
+                    menuProfile = null
+                    onEditProfile(profile.id)
+                },
+                onDelete = {
+                    menuProfile = null
+                    viewModel.delete(profile)
+                },
+                onDismiss = { menuProfile = null },
+            )
+        }
+    }
+}
+
+/** Long-press menu: edit or delete a profile (replaces the old instant, unconfirmed delete). */
+@Composable
+private fun ProfileActionMenu(
+    profile: ProfileEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val firstButton = remember { FocusRequester() }
+
+    BackHandler(enabled = true) { onDismiss() }
+    LaunchedEffect(Unit) { runCatching { firstButton.requestFocus() } }
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(colors.surface)
+                .padding(28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(
+                text = profile.name.ifBlank { profile.username },
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Button(
+                onClick = onEdit,
+                modifier = Modifier.fillMaxWidth().focusRequester(firstButton),
+            ) {
+                Text(text = "Editar", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            }
+            Button(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Eliminar", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            }
+            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Cancelar", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             }
         }
     }

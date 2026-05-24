@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Update
 import com.footballxtream.model.XtreamProfile
 import kotlinx.coroutines.flow.Flow
 
@@ -45,10 +46,17 @@ interface ProfileDao {
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
 
+    @Query("SELECT * FROM profiles WHERE id = :id")
+    suspend fun byId(id: Long): ProfileEntity?
+
     // Plain insert so autoGenerate assigns a fresh id; REPLACE made every new profile collide on
     // id=0 and overwrite the previous one (only one profile ever survived).
     @Insert
     suspend fun upsert(profile: ProfileEntity): Long
+
+    // Update an existing profile in place (matched by primary key) when editing it.
+    @Update
+    suspend fun update(profile: ProfileEntity)
 
     @Delete
     suspend fun delete(profile: ProfileEntity)

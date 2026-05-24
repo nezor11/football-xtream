@@ -12,9 +12,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.footballxtream.ui.RootViewModel
@@ -28,6 +30,7 @@ import com.footballxtream.ui.theme.FootballXtreamTheme
 object Routes {
     const val PROFILES = "profiles"
     const val ADD_PROFILE = "add_profile"
+    const val EDIT_PROFILE = "edit_profile"
     const val CHANNELS = "channels"
     const val PLAYER = "player"
 }
@@ -72,9 +75,11 @@ private fun AppNavigation(start: String) {
             ProfilesScreen(
                 onProfileSelected = { navController.navigate(Routes.CHANNELS) },
                 onAddProfile = { navController.navigate(Routes.ADD_PROFILE) },
+                onEditProfile = { id -> navController.navigate("${Routes.EDIT_PROFILE}/$id") },
             )
         }
 
+        // Add a new profile, then jump straight into its channels.
         composable(Routes.ADD_PROFILE) {
             AddProfileScreen(
                 onSaved = {
@@ -82,6 +87,18 @@ private fun AppNavigation(start: String) {
                         popUpTo(Routes.ADD_PROFILE) { inclusive = true }
                     }
                 },
+            )
+        }
+
+        // Edit an existing profile (prefilled), then return to the picker (showing the new name).
+        composable(
+            route = "${Routes.EDIT_PROFILE}/{profileId}",
+            arguments = listOf(navArgument("profileId") { type = NavType.LongType }),
+        ) { entry ->
+            val profileId = entry.arguments?.getLong("profileId") ?: -1L
+            AddProfileScreen(
+                profileId = profileId,
+                onSaved = { navController.popBackStack() },
             )
         }
 
