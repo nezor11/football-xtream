@@ -87,6 +87,15 @@ object ChannelNameParser {
         "gol ", "goltv", "tudn", "premier sport",
     )
 
+    // General / news broadcasters that panels often dump into a sports category. They are excluded
+    // only when a channel qualifies *via its category* (see [isSports]); any channel whose own name
+    // says "sport"/"futbol"/… is always kept, so e.g. "beIN Sports NEWS" survives.
+    private val nonSportsKeywords = listOf(
+        "2m", "al aoula", "arrabia", "athaqafia", "assadissa", "tamazight", "laayoune", "medi1",
+        "medi 1", "al jazeera", "al arabiya", "euronews", "france 24", "france24", "i24", "cnn",
+        "bbc news", "sky news", "rt news", "trt haber", "noticias", "telediario",
+    )
+
     // Trailing channel number (e.g. "beIN Sports 1" -> "beIN Sports"); keeps 4-digit+ tokens.
     private val trailingNumber = Regex("""[\s\-_]*\d{1,3}$""")
 
@@ -130,9 +139,15 @@ object ChannelNameParser {
     // "Liga SmartBank", and prefixes like "spor" -> "Sport"/"SporTV".
     private val sportsRegex = boundaryRegex(sportsKeywords)
     private val footballRegex = boundaryRegex(footballKeywords)
+    private val nonSportsRegex = boundaryRegex(nonSportsKeywords)
 
-    fun isSports(channelName: String, categoryName: String?): Boolean =
-        matchesAny(channelName, sportsRegex) || matchesAny(categoryName, sportsRegex)
+    fun isSports(channelName: String, categoryName: String?): Boolean {
+        // A sport in the name always counts (protects "beIN Sports NEWS", "Al Jazeera Sport"…).
+        if (matchesAny(channelName, sportsRegex)) return true
+        // Otherwise a sports category counts, unless the name is a known general/news broadcaster
+        // the provider mis-filed under that category (e.g. "2M Maroc" inside "BEINSPORT").
+        return matchesAny(categoryName, sportsRegex) && !matchesAny(channelName, nonSportsRegex)
+    }
 
     fun isFootball(channelName: String, categoryName: String?): Boolean =
         matchesAny(channelName, footballRegex) || matchesAny(categoryName, footballRegex)
