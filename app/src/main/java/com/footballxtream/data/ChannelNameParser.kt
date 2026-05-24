@@ -75,6 +75,15 @@ object ChannelNameParser {
         "gol ", "goltv", "tudn", "premier sport",
     )
 
+    // Trailing channel number (e.g. "beIN Sports 1" -> "beIN Sports"); keeps 4-digit+ tokens.
+    private val trailingNumber = Regex("""[\s\-_]*\d{1,3}$""")
+
+    /** Brand/family name: the base name with the trailing channel number removed. */
+    fun folderName(baseName: String): String {
+        val stripped = trailingNumber.replace(baseName, "").trim().trim('-', '_', '·').trim()
+        return stripped.ifBlank { baseName }
+    }
+
     fun quality(rawName: String): Quality {
         for ((quality, pattern) in qualityPatterns) {
             if (pattern.containsMatchIn(rawName)) return quality

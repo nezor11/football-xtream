@@ -1,5 +1,6 @@
 package com.footballxtream.ui.channels
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,9 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,9 +38,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.Card
@@ -42,6 +45,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import com.footballxtream.model.ChannelFolder
 import com.footballxtream.model.ChannelGroup
 import com.footballxtream.model.Quality
 import com.footballxtream.model.QualityMode
@@ -52,48 +56,60 @@ fun ChannelsScreen(
     viewModel: ChannelsViewModel = viewModel(factory = ChannelsViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val favoriteNames by viewModel.favoriteNames.collectAsStateWithLifecycle()
+    val openedFolder by viewModel.openedFolder.collectAsStateWithLifecycle()
 
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
-        when (val current = state) {
-            ChannelsUiState.Loading ->
+        val folder = openedFolder
+        when {
+            folder != null -> {
+                BackHandler(onBack = viewModel::closeFolder)
+                FolderDetail(
+                    folder = folder,
+                    onChannelSelected = { index -> viewModel.play(folder, index, onPlay) },
+                )
+            }
+
+            state is ChannelsUiState.Loading ->
                 Text("Cargando…", color = MaterialTheme.colorScheme.onBackground)
 
-            is ChannelsUiState.Error -> Column(
+            state is ChannelsUiState.Error -> Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(current.message, color = MaterialTheme.colorScheme.onBackground)
-                Button(onClick = viewModel::refresh) { Text("Reintentar") }
+                Text(
+                    (state as ChannelsUiState.Error).message,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Button(onClick = viewModel::reload) { Text("Reintentar") }
             }
 
-            is ChannelsUiState.Content -> ChannelsContent(
-                content = current,
-                favoriteIds = favoriteIds,
+            state is ChannelsUiState.Content -> FolderGrid(
+                content = state as ChannelsUiState.Content,
+                favoriteNames = favoriteNames,
                 onQualitySelected = viewModel::selectQuality,
                 onReload = viewModel::reload,
-                onPlay = { group -> viewModel.play(group, onPlay) },
-                onToggleFavorite = viewModel::toggleFavorite,
+                onFolderClick = { f ->
+                    if (f.isSingle) viewModel.play(f, 0, onPlay) else viewModel.openFolder(f)
+                },
+                onFolderLongClick = viewModel::toggleFavorite,
             )
         }
     }
 }
 
 @Composable
-private fun ChannelsContent(
+private fun FolderGrid(
     content: ChannelsUiState.Content,
-    favoriteIds: Set<Int>,
+    favoriteNames: Set<String>,
     onQualitySelected: (QualityMode) -> Unit,
     onReload: () -> Unit,
-    onPlay: (ChannelGroup) -> Unit,
-    onToggleFavorite: (ChannelGroup) -> Unit,
+    onFolderClick: (ChannelFolder) -> Unit,
+    onFolderLongClick: (ChannelFolder) -> Unit,
 ) {
-    val firstChipFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { firstChipFocus.requestFocus() } }
-
     Column(modifier = Modifier.fillMaxSize().padding(top = 28.dp)) {
         Text(
             text = "Deporte en directo",
@@ -105,15 +121,14 @@ private fun ChannelsContent(
             modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            QualityMode.entries.forEachIndexed { index, mode ->
-                QualityChip(
+            QualityMode.entries.forEach { mode ->
+                Chip(
                     label = mode.label,
                     selected = mode == content.qualityMode,
                     onClick = { onQualitySelected(mode) },
-                    modifier = if (index == 0) Modifier.focusRequester(firstChipFocus) else Modifier,
                 )
             }
-            QualityChip(label = "↻ Recargar", selected = false, onClick = onReload)
+            Chip(label = "↻ Recargar", selected = false, onClick = onReload)
         }
 
         if (content.rows.isEmpty()) {
@@ -142,14 +157,12 @@ private fun ChannelsContent(
                         contentPadding = PaddingValues(horizontal = 48.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        items(row.groups) { group ->
-                            ChannelCard(
-                                group = group,
-                                isFavorite = group.variants.any {
-                                    favoriteIds.contains(it.channel.streamId)
-                                },
-                                onClick = { onPlay(group) },
-                                onLongClick = { onToggleFavorite(group) },
+                        items(row.folders) { folder ->
+                            FolderCard(
+                                folder = folder,
+                                isFavorite = favoriteNames.contains(folder.name),
+                                onClick = { onFolderClick(folder) },
+                                onLongClick = { onFolderLongClick(folder) },
                             )
                         }
                     }
@@ -160,43 +173,124 @@ private fun ChannelsContent(
 }
 
 @Composable
-private fun QualityChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun FolderDetail(
+    folder: ChannelFolder,
+    onChannelSelected: (Int) -> Unit,
 ) {
+    val firstFocus = remember { FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(folder.name) {
+        runCatching { firstFocus.requestFocus() }
+    }
+    Column(modifier = Modifier.fillMaxSize().padding(top = 28.dp)) {
+        Text(
+            text = folder.name,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
+        )
+        Text(
+            text = "Atrás para volver",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 48.dp, bottom = 16.dp),
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(220.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            itemsIndexed(folder.channels) { index, channel ->
+                ChannelCard(
+                    group = channel,
+                    onClick = { onChannelSelected(index) },
+                    modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
-    val background = if (selected) colors.primary else colors.surfaceVariant
-    val textColor = if (selected) colors.onPrimary else colors.onSurface
-
     Box(
-        modifier = modifier
+        modifier = Modifier
             .clip(shape)
-            .background(background)
+            .background(if (selected) colors.primary else colors.surfaceVariant)
             .border(2.dp, if (focused) colors.onBackground else Color.Transparent, shape)
             .onFocusChanged { focused = it.isFocused }
             .clickable { onClick() }
             .padding(horizontal = 18.dp, vertical = 8.dp),
     ) {
-        Text(text = label, style = MaterialTheme.typography.labelLarge, color = textColor)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) colors.onPrimary else colors.onSurface,
+        )
     }
 }
 
 @Composable
-private fun ChannelCard(
-    group: ChannelGroup,
+private fun FolderCard(
+    folder: ChannelFolder,
     isFavorite: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
+    val subtitle = if (folder.isSingle) {
+        qualityLabels(folder.single)
+    } else {
+        "${folder.channels.size} canales"
+    }
+    ImageCard(
+        title = folder.name,
+        subtitle = subtitle,
+        iconUrl = folder.iconUrl,
+        showFavorite = isFavorite,
+        showFolderHint = !folder.isSingle,
+        onClick = onClick,
+        onLongClick = onLongClick,
+    )
+}
+
+@Composable
+private fun ChannelCard(
+    group: ChannelGroup,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ImageCard(
+        title = group.displayName,
+        subtitle = qualityLabels(group),
+        iconUrl = group.iconUrl,
+        showFavorite = false,
+        showFolderHint = false,
+        onClick = onClick,
+        onLongClick = null,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ImageCard(
+    title: String,
+    subtitle: String,
+    iconUrl: String?,
+    showFavorite: Boolean,
+    showFolderHint: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
     Card(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = Modifier.width(210.dp),
+        modifier = modifier.width(210.dp),
         border = CardDefaults.border(
             focusedBorder = Border(
                 border = androidx.compose.foundation.BorderStroke(3.dp, colors.primary),
@@ -208,44 +302,53 @@ private fun ChannelCard(
             modifier = Modifier.fillMaxWidth().height(112.dp).background(colors.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
-            if (group.iconUrl != null) {
+            if (iconUrl != null) {
                 AsyncImage(
-                    model = group.iconUrl,
-                    contentDescription = group.displayName,
+                    model = iconUrl,
+                    contentDescription = title,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(12.dp),
                 )
             } else {
                 Text(
-                    text = group.displayName.take(2).uppercase(),
+                    text = title.take(2).uppercase(),
                     style = MaterialTheme.typography.headlineSmall,
                     color = colors.onSurfaceVariant,
                 )
             }
-            if (isFavorite) {
+            if (showFavorite) {
                 Text(
                     text = "★",
                     color = colors.primary,
                     modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
                 )
             }
+            if (showFolderHint) {
+                Text(
+                    text = "▸",
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                )
+            }
         }
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
             Text(
-                text = group.displayName,
+                text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = Quality.tiers
-                    .filter { group.availableQualities.contains(it) }
-                    .joinToString(" · ") { it.label },
+                text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.primary,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
+
+private fun qualityLabels(group: ChannelGroup): String =
+    Quality.tiers.filter { group.availableQualities.contains(it) }.joinToString(" · ") { it.label }

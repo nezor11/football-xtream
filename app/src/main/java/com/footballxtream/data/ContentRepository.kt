@@ -20,7 +20,10 @@ class XtreamAuthException : Exception("Autenticación rechazada por el servidor"
  * Single entry point for channel data. Holds the active source (Xtream API or an M3U playlist)
  * and exposes sports-grouped channels regardless of the source.
  */
-class ContentRepository(private val cacheDir: File) {
+class ContentRepository(
+    private val cacheDir: File,
+    private val logoRepository: LogoRepository,
+) {
 
     private sealed interface Binding {
         data class Xtream(val profile: XtreamProfile, val api: XtreamApi) : Binding
@@ -81,7 +84,7 @@ class ContentRepository(private val cacheDir: File) {
      * Sports channel groups for an M3U source. The parsed+grouped result is cached on disk so repeat
      * loads skip both the 11 MB download and the parse of thousands of entries (near-instant).
      */
-    private fun loadM3uGroups(url: String, forceRefresh: Boolean): List<ChannelGroup> {
+    private suspend fun loadM3uGroups(url: String, forceRefresh: Boolean): List<ChannelGroup> {
         val cacheFile = File(cacheDir, "groups_v$CACHE_VERSION-${url.hashCode()}.json")
         if (!forceRefresh && cacheFile.exists() &&
             System.currentTimeMillis() - cacheFile.lastModified() < CACHE_TTL_MS
@@ -95,6 +98,23 @@ class ContentRepository(private val cacheDir: File) {
         runCatching { cacheFile.writeText(groupsJson.encodeToString(groups)) }
         return groups
     }
+
+    /**
+     * Fills in a logo for channels that don't carry one, using the iptv-org logo database.
+     * Kept separate from [loadLiveGroups] so the grid can render immediately while this — which may
+     * download the ~17 MB iptv-org database on a cold cache — runs in the background.
+     */
+    suspend fun enrichLogos(groups: List<ChannelGroup>): List<ChannelGroup> =
+        withContext(Dispatchers.IO) {
+            logoRepository.ensureLoaded()
+            groups.map { group ->
+                if (!group.iconUrl.isNullOrBlank()) {
+                    group
+                } else {
+                    logoRepository.logoFor(group.displayName)?.let { group.copy(iconUrl = it) } ?: group
+                }
+            }
+        }
 
     private suspend fun loadXtream(binding: Binding.Xtream): List<ChannelGroup> {
         val profile = binding.profile
@@ -116,6 +136,6 @@ class ContentRepository(private val cacheDir: File) {
     private companion object {
         const val TAG = "FXContent"
         const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
-        const val CACHE_VERSION = 2 // bump when parsing/filtering/grouping logic changes
+        const val CACHE_VERSION = 3 // bump when parsing/filtering/grouping logic changes
     }
 }

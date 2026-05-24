@@ -29,9 +29,12 @@ object M3uParser {
                 line.isEmpty() || line.startsWith("#") -> Unit // skip other directives
 
                 else -> {
-                    // URL line that closes the current #EXTINF entry.
+                    // URL line that closes the current #EXTINF entry. Keep only live channels
+                    // (Xtream VOD/series URLs carry /movie/ or /series/), which also speeds up
+                    // parsing a huge playlist and avoids films matching sports keywords.
                     val channelName = name
-                    if (channelName != null && channelName.isNotBlank()) {
+                    val isLive = !line.contains("/movie/", true) && !line.contains("/series/", true)
+                    if (isLive && channelName != null && channelName.isNotBlank()) {
                         channels += LiveChannel(
                             streamId = line.hashCode(),
                             name = channelName,

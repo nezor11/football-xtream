@@ -7,21 +7,25 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.footballxtream.FootballXtreamApp
+import com.footballxtream.data.ChannelNameParser
 import com.footballxtream.data.ContentRepository
-import com.footballxtream.data.local.FavoriteChannelDao
-import com.footballxtream.data.local.FavoriteChannelEntity
+import com.footballxtream.data.local.FavoriteFolderDao
+import com.footballxtream.data.local.FavoriteFolderEntity
+import com.footballxtream.data.local.SettingsStore
+import com.footballxtream.model.ChannelFolder
 import com.footballxtream.model.ChannelGroup
 import com.footballxtream.model.QualityMode
 import com.footballxtream.player.PlaybackSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class ChannelRow(val title: String, val groups: List<ChannelGroup>)
+data class ChannelRow(val title: String, val folders: List<ChannelFolder>)
 
 sealed interface ChannelsUiState {
     data object Loading : ChannelsUiState
@@ -34,30 +38,33 @@ sealed interface ChannelsUiState {
 
 class ChannelsViewModel(
     private val repository: ContentRepository,
-    private val favoriteDao: FavoriteChannelDao,
-    private val settingsStore: com.footballxtream.data.local.SettingsStore,
+    private val favoriteDao: FavoriteFolderDao,
+    private val settingsStore: SettingsStore,
     private val playbackSession: PlaybackSession,
 ) : ViewModel() {
 
     private sealed interface Load {
         data object Loading : Load
         data class Error(val message: String) : Load
-        data class Data(val groups: List<ChannelGroup>) : Load
+        data class Data(val folders: List<ChannelFolder>) : Load
     }
 
     private val load = MutableStateFlow<Load>(Load.Loading)
 
-    val favoriteIds: StateFlow<Set<Int>> = favoriteDao.observeAll()
-        .map { entities -> entities.map { it.streamId }.toSet() }
+    private val _openedFolder = MutableStateFlow<ChannelFolder?>(null)
+    val openedFolder: StateFlow<ChannelFolder?> = _openedFolder.asStateFlow()
+
+    val favoriteNames: StateFlow<Set<String>> = favoriteDao.observeAll()
+        .map { entities -> entities.map { it.name }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     val uiState: StateFlow<ChannelsUiState> =
-        combine(load, favoriteIds, settingsStore.qualityMode) { loadState, favorites, mode ->
+        combine(load, favoriteNames, settingsStore.qualityMode) { loadState, favorites, mode ->
             when (loadState) {
                 Load.Loading -> ChannelsUiState.Loading
                 is Load.Error -> ChannelsUiState.Error(loadState.message)
                 is Load.Data -> ChannelsUiState.Content(
-                    rows = buildRows(loadState.groups, favorites, mode),
+                    rows = buildRows(loadState.folders, favorites, mode),
                     qualityMode = mode,
                 )
             }
@@ -70,62 +77,91 @@ class ChannelsViewModel(
     fun refresh(forceRefresh: Boolean = false) {
         load.value = Load.Loading
         viewModelScope.launch {
-            load.value = repository.loadLiveGroups(forceRefresh).fold(
-                onSuccess = { Load.Data(it) },
-                onFailure = { Load.Error("No se pudieron cargar los canales.") },
+            repository.loadLiveGroups(forceRefresh).fold(
+                onSuccess = { groups ->
+                    // Show channels right away (with whatever logos the playlist carries)…
+                    load.value = Load.Data(foldIntoFolders(groups))
+                    // …then fill missing logos in the background and refresh the grid.
+                    launch {
+                        val enriched = repository.enrichLogos(groups)
+                        if (enriched != groups) load.value = Load.Data(foldIntoFolders(enriched))
+                    }
+                },
+                onFailure = { load.value = Load.Error("No se pudieron cargar los canales.") },
             )
         }
     }
 
-    /** Forces a fresh download, bypassing the M3U cache. */
     fun reload() = refresh(forceRefresh = true)
 
     fun selectQuality(mode: QualityMode) {
         viewModelScope.launch { settingsStore.setQualityMode(mode) }
     }
 
-    fun toggleFavorite(group: ChannelGroup) {
+    fun openFolder(folder: ChannelFolder) {
+        _openedFolder.value = folder
+    }
+
+    fun closeFolder() {
+        _openedFolder.value = null
+    }
+
+    fun toggleFavorite(folder: ChannelFolder) {
         viewModelScope.launch {
-            val favorites = favoriteIds.value
-            val owned = group.variants.map { it.channel.streamId }.filter { favorites.contains(it) }
-            if (owned.isNotEmpty()) {
-                owned.forEach { favoriteDao.remove(it) }
+            if (favoriteNames.value.contains(folder.name)) {
+                favoriteDao.remove(folder.name)
             } else {
-                favoriteDao.add(FavoriteChannelEntity.from(group.bestVariant().channel))
+                favoriteDao.add(FavoriteFolderEntity(folder.name))
             }
         }
     }
 
-    fun play(group: ChannelGroup, onReady: () -> Unit) {
-        val content = uiState.value as? ChannelsUiState.Content ?: return
-        val playlist = content.rows.flatMap { it.groups }
-        playbackSession.start(playlist, playlist.indexOf(group).coerceAtLeast(0))
+    /** Starts playback of [folder]'s channels at [index]; that folder becomes the zap playlist. */
+    fun play(folder: ChannelFolder, index: Int, onReady: () -> Unit) {
+        playbackSession.start(folder.channels, index)
         onReady()
     }
 
+    private fun foldIntoFolders(groups: List<ChannelGroup>): List<ChannelFolder> =
+        groups.groupBy { ChannelNameParser.folderName(it.displayName) }
+            .map { (name, members) ->
+                val sorted = members.sortedBy { channelNumber(it.displayName) }
+                ChannelFolder(
+                    name = name,
+                    iconUrl = sorted.firstNotNullOfOrNull { it.iconUrl },
+                    isFootball = sorted.any { it.isFootball },
+                    channels = sorted,
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+
+    private fun channelNumber(displayName: String): Int =
+        Regex("""(\d{1,3})\s*$""").find(displayName.trim())?.groupValues?.get(1)?.toIntOrNull() ?: 0
+
     private fun buildRows(
-        groups: List<ChannelGroup>,
-        favorites: Set<Int>,
+        folders: List<ChannelFolder>,
+        favorites: Set<String>,
         mode: QualityMode,
     ): List<ChannelRow> {
         val fixed = mode.fixedQuality
         val visible = if (fixed == null) {
-            groups
+            folders
         } else {
-            groups.filter { it.availableQualities.contains(fixed) }
+            folders.filter { folder ->
+                folder.channels.any { it.availableQualities.contains(fixed) }
+            }
         }
 
-        fun isFavorite(group: ChannelGroup) =
-            group.variants.any { favorites.contains(it.channel.streamId) }
+        fun isFavorite(folder: ChannelFolder) = favorites.contains(folder.name)
 
-        val favoriteGroups = visible.filter(::isFavorite)
-        val footballGroups = visible.filter { it.isFootball && !isFavorite(it) }
-        val otherGroups = visible.filter { !it.isFootball && !isFavorite(it) }
+        val favoriteFolders = visible.filter(::isFavorite)
+        val footballFolders = visible.filter { it.isFootball && !isFavorite(it) }
+        val otherFolders = visible.filter { !it.isFootball && !isFavorite(it) }
 
         return buildList {
-            if (favoriteGroups.isNotEmpty()) add(ChannelRow("Favoritos", favoriteGroups))
-            if (footballGroups.isNotEmpty()) add(ChannelRow("Fútbol", footballGroups))
-            if (otherGroups.isNotEmpty()) add(ChannelRow("Más deporte", otherGroups))
+            if (favoriteFolders.isNotEmpty()) add(ChannelRow("Favoritos", favoriteFolders))
+            if (footballFolders.isNotEmpty()) add(ChannelRow("Fútbol", footballFolders))
+            if (otherFolders.isNotEmpty()) add(ChannelRow("Más deporte", otherFolders))
         }
     }
 
@@ -135,7 +171,7 @@ class ChannelsViewModel(
                 val container = (this[APPLICATION_KEY] as FootballXtreamApp).container
                 ChannelsViewModel(
                     container.repository,
-                    container.favoriteChannelDao,
+                    container.favoriteFolderDao,
                     container.settingsStore,
                     container.playbackSession,
                 )

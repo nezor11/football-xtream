@@ -3,8 +3,9 @@ package com.footballxtream
 import android.content.Context
 import androidx.room.Room
 import com.footballxtream.data.ContentRepository
+import com.footballxtream.data.LogoRepository
 import com.footballxtream.data.local.AppDatabase
-import com.footballxtream.data.local.FavoriteChannelDao
+import com.footballxtream.data.local.FavoriteFolderDao
 import com.footballxtream.data.local.ProfileDao
 import com.footballxtream.data.local.SettingsStore
 import com.footballxtream.player.PlaybackSession
@@ -22,9 +23,10 @@ class AppContainer(context: Context) {
     ).fallbackToDestructiveMigration().build()
 
     val profileDao: ProfileDao = database.profileDao()
-    val favoriteChannelDao: FavoriteChannelDao = database.favoriteChannelDao()
+    val favoriteFolderDao: FavoriteFolderDao = database.favoriteFolderDao()
     val settingsStore: SettingsStore = SettingsStore(appContext)
-    val repository: ContentRepository = ContentRepository(appContext.cacheDir)
+    val logoRepository: LogoRepository = LogoRepository(appContext.cacheDir)
+    val repository: ContentRepository = ContentRepository(appContext.cacheDir, logoRepository)
     val playbackSession: PlaybackSession = PlaybackSession()
     val playerEngine: PlayerEngine = PlayerEngine(appContext, settingsStore)
 }
