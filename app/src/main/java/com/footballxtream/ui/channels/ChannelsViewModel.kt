@@ -54,17 +54,20 @@ class ChannelsViewModel(
     private val _openedFolder = MutableStateFlow<ChannelFolder?>(null)
     val openedFolder: StateFlow<ChannelFolder?> = _openedFolder.asStateFlow()
 
+    private val query = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = query.asStateFlow()
+
     val favoriteNames: StateFlow<Set<String>> = favoriteDao.observeAll()
         .map { entities -> entities.map { it.name }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     val uiState: StateFlow<ChannelsUiState> =
-        combine(load, favoriteNames, settingsStore.qualityMode) { loadState, favorites, mode ->
+        combine(load, favoriteNames, settingsStore.qualityMode, query) { loadState, favorites, mode, q ->
             when (loadState) {
                 Load.Loading -> ChannelsUiState.Loading
                 is Load.Error -> ChannelsUiState.Error(loadState.message)
                 is Load.Data -> ChannelsUiState.Content(
-                    rows = buildRows(loadState.folders, favorites, mode),
+                    rows = buildRows(loadState.folders, favorites, mode, q),
                     qualityMode = mode,
                 )
             }
@@ -106,6 +109,10 @@ class ChannelsViewModel(
         _openedFolder.value = null
     }
 
+    fun setQuery(value: String) {
+        query.value = value
+    }
+
     fun toggleFavorite(folder: ChannelFolder) {
         viewModelScope.launch {
             if (favoriteNames.value.contains(folder.name)) {
@@ -142,14 +149,22 @@ class ChannelsViewModel(
         folders: List<ChannelFolder>,
         favorites: Set<String>,
         mode: QualityMode,
+        query: String,
     ): List<ChannelRow> {
         val fixed = mode.fixedQuality
-        val visible = if (fixed == null) {
+        val byQuality = if (fixed == null) {
             folders
         } else {
             folders.filter { folder ->
                 folder.channels.any { it.availableQualities.contains(fixed) }
             }
+        }
+
+        val needle = query.trim()
+        val visible = if (needle.isBlank()) {
+            byQuality
+        } else {
+            byQuality.filter { it.name.contains(needle, ignoreCase = true) }
         }
 
         fun isFavorite(folder: ChannelFolder) = favorites.contains(folder.name)

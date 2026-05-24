@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ import com.footballxtream.model.ChannelFolder
 import com.footballxtream.model.ChannelGroup
 import com.footballxtream.model.Quality
 import com.footballxtream.model.QualityMode
+import com.footballxtream.ui.components.TvTextField
 
 @Composable
 fun ChannelsScreen(
@@ -58,6 +60,7 @@ fun ChannelsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val favoriteNames by viewModel.favoriteNames.collectAsStateWithLifecycle()
     val openedFolder by viewModel.openedFolder.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -90,6 +93,8 @@ fun ChannelsScreen(
             state is ChannelsUiState.Content -> FolderGrid(
                 content = state as ChannelsUiState.Content,
                 favoriteNames = favoriteNames,
+                query = searchQuery,
+                onQueryChange = viewModel::setQuery,
                 onQualitySelected = viewModel::selectQuality,
                 onReload = viewModel::reload,
                 onFolderClick = { f ->
@@ -105,6 +110,8 @@ fun ChannelsScreen(
 private fun FolderGrid(
     content: ChannelsUiState.Content,
     favoriteNames: Set<String>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
     onReload: () -> Unit,
     onFolderClick: (ChannelFolder) -> Unit,
@@ -117,8 +124,11 @@ private fun FolderGrid(
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 48.dp, bottom = 14.dp),
         )
+        val searchFocus = remember { FocusRequester() }
+        var searchOpen by remember { mutableStateOf(query.isNotBlank()) }
+
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 18.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             QualityMode.entries.forEach { mode ->
@@ -128,12 +138,35 @@ private fun FolderGrid(
                     onClick = { onQualitySelected(mode) },
                 )
             }
+            Chip(
+                label = "🔍 Buscar",
+                selected = searchOpen || query.isNotBlank(),
+                onClick = {
+                    searchOpen = !searchOpen
+                    if (!searchOpen) onQueryChange("")
+                },
+            )
             Chip(label = "↻ Recargar", selected = false, onClick = onReload)
+        }
+
+        if (searchOpen) {
+            LaunchedEffect(Unit) { runCatching { searchFocus.requestFocus() } }
+            TvTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                label = "Buscar  (p. ej. laliga, movistar, dazn)",
+                modifier = Modifier.padding(start = 48.dp, bottom = 18.dp).width(520.dp),
+                focusRequester = searchFocus,
+            )
         }
 
         if (content.rows.isEmpty()) {
             Text(
-                text = "No se encontraron canales de deporte en este perfil.",
+                text = if (query.isBlank()) {
+                    "No se encontraron canales de deporte en este perfil."
+                } else {
+                    "Sin resultados para \"$query\"."
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 48.dp, top = 24.dp),
             )
