@@ -12,7 +12,8 @@ enum class Quality(
     val label: String,
     val typicalBitrateBps: Long,
 ) {
-    UHD_4K(4, "4K", 20_000_000),
+    UHD_4K(5, "4K", 20_000_000),
+    QHD(4, "2K", 10_000_000),
     FHD(3, "FHD", 6_000_000),
     HD(2, "HD", 3_000_000),
     SD(1, "SD", 1_200_000),
@@ -20,6 +21,6 @@ enum class Quality(
 
     companion object {
         /** Selectable tiers, highest first. */
-        val tiers: List<Quality> = listOf(UHD_4K, FHD, HD, SD)
+        val tiers: List<Quality> = listOf(UHD_4K, QHD, FHD, HD, SD)
     }
 }

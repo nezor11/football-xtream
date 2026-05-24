@@ -9,16 +9,28 @@ import com.footballxtream.model.Quality
  */
 object ChannelNameParser {
 
-    // Order matters: 4K before FHD, FHD before HD ("FULL HD" contains "HD").
+    // Order matters: 4K before 2K before FHD before HD ("FULL HD" contains "HD"). [tokenRegex] matches
+    // a quality either delimited by non-alphanumerics ("LaLiga HD") or glued to the end of a word
+    // ("LaLigaTVHD", "...HD+"), which IPTV panels do constantly.
     private val qualityPatterns: List<Pair<Quality, Regex>> = listOf(
-        Quality.UHD_4K to Regex("""(?<![a-z0-9])(4k|uhd|2160p?)(?![a-z0-9])""", RegexOption.IGNORE_CASE),
-        Quality.FHD to Regex("""(?<![a-z0-9])(fhd|full\s*hd|1080p?)(?![a-z0-9])""", RegexOption.IGNORE_CASE),
-        Quality.HD to Regex("""(?<![a-z0-9])(hd|720p?)(?![a-z0-9])""", RegexOption.IGNORE_CASE),
-        Quality.SD to Regex("""(?<![a-z0-9])(sd|480p?|360p?)(?![a-z0-9])""", RegexOption.IGNORE_CASE),
+        Quality.UHD_4K to tokenRegex("4k", "uhd", "2160p?"),
+        Quality.QHD to tokenRegex("2k", "1440p?", "qhd"),
+        Quality.FHD to tokenRegex("fhd", """full\s*hd""", "1080p?"),
+        Quality.HD to tokenRegex("hd", "720p?"),
+        Quality.SD to tokenRegex("sd", "480p?", "360p?"),
     )
 
+    // A quality token matches whether it is spaced ("LaLiga HD") or glued to a word ("LaLigaTVHD"):
+    // only the right side must be a boundary (end, space, symbol or emoji — anything non-alphanumeric),
+    // and it must not start mid-number (so "1080" isn't read as "108"+"0"). Names are noise-stripped
+    // first by [normalizeForTokens], so trailing flags/punctuation don't block the match.
+    private fun tokenRegex(vararg tokens: String): Regex {
+        val group = tokens.joinToString("|")
+        return Regex("""(?<![0-9])($group)(?![a-z0-9])""", RegexOption.IGNORE_CASE)
+    }
+
     private val allQualityTokens = Regex(
-        """(?<![a-z0-9])(4k|uhd|2160p?|fhd|full\s*hd|1080p?|hd|720p?|sd|480p?|360p?)(?![a-z0-9])""",
+        """(?<![0-9])(4k|uhd|2160p?|2k|1440p?|qhd|fhd|full\s*hd|1080p?|hd|720p?|sd|480p?|360p?)(?![a-z0-9])""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -85,35 +97,53 @@ object ChannelNameParser {
     }
 
     fun quality(rawName: String): Quality {
+        val name = normalizeForTokens(rawName)
         for ((quality, pattern) in qualityPatterns) {
-            if (pattern.containsMatchIn(rawName)) return quality
+            if (pattern.containsMatchIn(name)) return quality
         }
         return Quality.UNKNOWN
     }
 
     /** Canonical channel name with quality tags, prefixes and noise removed. */
     fun baseName(rawName: String): String {
-        var name = rawName
-        name = bracketed.replace(name, " ")
+        val name = allQualityTokens.replace(normalizeForTokens(rawName), " ")
+        return multiSpace.replace(name, " ").trim().trim('-', '|', ':', '.', '·').trim()
+    }
+
+    /**
+     * Strips brackets, a leading provider prefix and symbol/emoji noise — but NOT quality tags —
+     * so quality detection runs on a clean string. Crucially this removes trailing flag emojis
+     * before quality is read, so a glued tag like "LigaSmartBankHD🇪🇸" still resolves to "HD".
+     */
+    private fun normalizeForTokens(rawName: String): String {
+        var name = bracketed.replace(rawName, " ")
         name = leadingPrefix.replace(name, "")
-        name = allQualityTokens.replace(name, " ")
         name = noise.replace(name, " ")
-        name = multiSpace.replace(name, " ").trim().trim('-', '|', ':', '.', '·').trim()
-        return name
+        return multiSpace.replace(name, " ").trim()
     }
 
     /** Stable identity used to group quality variants of the same channel. */
     fun groupKey(rawName: String): String = baseName(rawName).lowercase()
 
+    // Keywords match only at the start of a word (not preceded by a letter), so "liga" no longer
+    // matches "alligator"/"hooligans"/"obligations"/"caligari" while still catching "LaLiga",
+    // "Liga SmartBank", and prefixes like "spor" -> "Sport"/"SporTV".
+    private val sportsRegex = boundaryRegex(sportsKeywords)
+    private val footballRegex = boundaryRegex(footballKeywords)
+
     fun isSports(channelName: String, categoryName: String?): Boolean =
-        matchesAny(channelName, sportsKeywords) || matchesAny(categoryName, sportsKeywords)
+        matchesAny(channelName, sportsRegex) || matchesAny(categoryName, sportsRegex)
 
     fun isFootball(channelName: String, categoryName: String?): Boolean =
-        matchesAny(channelName, footballKeywords) || matchesAny(categoryName, footballKeywords)
+        matchesAny(channelName, footballRegex) || matchesAny(categoryName, footballRegex)
 
-    private fun matchesAny(text: String?, keywords: List<String>): Boolean {
+    private fun boundaryRegex(keywords: List<String>): Regex {
+        val alternation = keywords.joinToString("|") { Regex.escape(it) }
+        return Regex("""(?<!\p{L})($alternation)""", RegexOption.IGNORE_CASE)
+    }
+
+    private fun matchesAny(text: String?, regex: Regex): Boolean {
         if (text.isNullOrBlank()) return false
-        val lower = text.lowercase()
-        return keywords.any { lower.contains(it) }
+        return regex.containsMatchIn(text)
     }
 }
