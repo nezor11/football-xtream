@@ -18,6 +18,17 @@ android {
         versionName = "0.1.0"
     }
 
+    // Split the FFmpeg native libs per ABI. Real Android TV / Fire TV / phone devices are ARM, so a
+    // single-ABI APK is far smaller than the universal one (which bundles all four architectures).
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
