@@ -4,6 +4,7 @@ import android.util.Log
 import com.footballxtream.data.remote.XtreamApi
 import com.footballxtream.data.remote.XtreamClient
 import com.footballxtream.model.ChannelGroup
+import com.footballxtream.model.EpgProgram
 import com.footballxtream.model.LiveChannel
 import com.footballxtream.model.XtreamProfile
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +117,20 @@ class ContentRepository(
             }
         }
 
+    /**
+     * "Now / next" EPG for a stream. Only Xtream sources expose it (via get_short_epg); M3U returns
+     * empty. Any server quirk is swallowed so the player simply shows no guide instead of failing.
+     */
+    suspend fun shortEpg(streamId: Int): List<EpgProgram> = withContext(Dispatchers.IO) {
+        val current = binding as? Binding.Xtream ?: return@withContext emptyList()
+        runCatching {
+            current.api.getShortEpg(current.profile.username, current.profile.password, streamId)
+                .epgListings
+                .mapNotNull { it.toModel() }
+                .sortedBy { it.start }
+        }.onFailure { Log.w(TAG, "shortEpg failed for $streamId", it) }.getOrDefault(emptyList())
+    }
+
     private suspend fun loadXtream(binding: Binding.Xtream): List<ChannelGroup> {
         val profile = binding.profile
         val api = binding.api
@@ -136,6 +151,6 @@ class ContentRepository(
     private companion object {
         const val TAG = "FXContent"
         const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
-        const val CACHE_VERSION = 6 // bump when parsing/filtering/grouping logic changes
+        const val CACHE_VERSION = 8 // bump when parsing/filtering/grouping logic changes
     }
 }

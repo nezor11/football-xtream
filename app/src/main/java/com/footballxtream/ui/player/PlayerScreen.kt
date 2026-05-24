@@ -119,6 +119,9 @@ fun PlayerScreen(
                 resolution = ui.resolution,
                 isBuffering = ui.isBuffering,
             )
+            ui.nowProgram?.let { now ->
+                EpgOverlay(now = now, next = ui.nextProgram)
+            }
             if (ui.qualityMenuOpen) {
                 QualityMenu(
                     options = ui.qualityOptions,
@@ -166,6 +169,25 @@ private fun StatsOverlay(
             text = parts.joinToString("  •  "),
             style = MaterialTheme.typography.labelLarge,
             color = if (isBuffering) MaterialTheme.colorScheme.primary else Color(0xFFE6EAEE),
+        )
+    }
+}
+
+@Composable
+private fun EpgOverlay(now: String, next: String?, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xCC0A0E12))
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = buildString {
+                append("Ahora: ").append(now)
+                if (!next.isNullOrBlank()) append("   ·   Luego: ").append(next)
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFFE6EAEE),
         )
     }
 }

@@ -12,6 +12,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.footballxtream.FootballXtreamApp
+import com.footballxtream.data.ContentRepository
 import com.footballxtream.data.local.SettingsStore
 import com.footballxtream.model.ChannelGroup
 import com.footballxtream.model.ChannelVariant
@@ -37,6 +38,9 @@ data class PlayerUiState(
     val qualityMenuOpen: Boolean = false,
     val qualityOptions: List<String> = emptyList(),
     val qualitySelectedIndex: Int = 0,
+    /** "Now / next" programme titles from EPG (Xtream only), null when unavailable. */
+    val nowProgram: String? = null,
+    val nextProgram: String? = null,
 )
 
 @OptIn(UnstableApi::class)
@@ -44,6 +48,7 @@ class PlayerViewModel(
     private val playbackSession: PlaybackSession,
     private val settingsStore: SettingsStore,
     private val playerEngine: PlayerEngine,
+    private val repository: ContentRepository,
 ) : ViewModel() {
 
     val canPlay: Boolean = playbackSession.current != null
@@ -167,6 +172,7 @@ class PlayerViewModel(
         currentGroup = group
         rebufferCount = 0
         hasStartedOnce = false
+        settingsStore.setLastChannelKey(group.key)
         val variant = variantForEmission(group)
         currentQuality = variant.quality
         _ui.update {
@@ -175,9 +181,26 @@ class PlayerViewModel(
                 emissionLabel = emissionLabel(selectedEmission),
                 isBuffering = true,
                 qualityMenuOpen = false,
+                nowProgram = null,
+                nextProgram = null,
             )
         }
         playUri(variant)
+        loadEpg(group, variant.channel.streamId)
+    }
+
+    /** Fetches "now / next" EPG for the playing channel (no-op for non-Xtream sources). */
+    private fun loadEpg(group: ChannelGroup, streamId: Int) {
+        viewModelScope.launch {
+            val epg = repository.shortEpg(streamId)
+            if (currentGroup !== group || epg.isEmpty()) return@launch
+            val now = System.currentTimeMillis()
+            val current = epg.firstOrNull { it.nowFlag }
+                ?: epg.firstOrNull { it.start in 1..now && now < it.end }
+                ?: epg.first()
+            val next = epg.getOrNull(epg.indexOf(current) + 1)
+            _ui.update { it.copy(nowProgram = current.title, nextProgram = next?.title) }
+        }
     }
 
     private fun playUri(variant: ChannelVariant) {
@@ -252,6 +275,7 @@ class PlayerViewModel(
                     container.playbackSession,
                     container.settingsStore,
                     container.playerEngine,
+                    container.repository,
                 )
             }
         }
