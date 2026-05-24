@@ -12,7 +12,8 @@ object ChannelGrouping {
 
     fun build(channels: List<LiveChannel>): List<ChannelGroup> {
         val sports = channels.filter {
-            ChannelNameParser.isSports(it.name, it.categoryName)
+            !ChannelNameParser.isVodCategory(it.categoryName) &&
+                ChannelNameParser.isSports(it.name, it.categoryName)
         }
 
         return sports

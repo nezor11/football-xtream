@@ -152,6 +152,13 @@ object ChannelNameParser {
     fun isFootball(channelName: String, categoryName: String?): Boolean =
         matchesAny(channelName, footballRegex) || matchesAny(categoryName, footballRegex)
 
+    // "VOD" as a whole word in the category (so "VOD FR" matches but "VODAFONE" does not). Used to
+    // drop video-on-demand that panels file under live categories (e.g. Xtream get_live_streams).
+    private val vodCategory = Regex("""\bvod\b""", RegexOption.IGNORE_CASE)
+
+    fun isVodCategory(category: String?): Boolean =
+        category != null && vodCategory.containsMatchIn(category)
+
     private fun boundaryRegex(keywords: List<String>): Regex {
         val alternation = keywords.joinToString("|") { Regex.escape(it) }
         return Regex("""(?<!\p{L})($alternation)""", RegexOption.IGNORE_CASE)

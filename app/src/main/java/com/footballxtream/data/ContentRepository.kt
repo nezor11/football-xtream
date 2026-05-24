@@ -170,6 +170,6 @@ class ContentRepository(
     private companion object {
         const val TAG = "FXContent"
         const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
-        const val CACHE_VERSION = 8 // bump when parsing/filtering/grouping logic changes
+        const val CACHE_VERSION = 9 // bump when parsing/filtering/grouping logic changes
     }
 }
