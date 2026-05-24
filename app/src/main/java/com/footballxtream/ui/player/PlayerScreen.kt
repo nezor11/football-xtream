@@ -5,9 +5,12 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,7 +49,11 @@ fun PlayerScreen(
 
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val focusRequester = remember { FocusRequester() }
-    BackHandler(onBack = onBack)
+
+    // Back closes the quality menu first; otherwise it leaves the player.
+    BackHandler(enabled = ui.qualityMenuOpen) { viewModel.closeQualityMenu() }
+    BackHandler(enabled = !ui.qualityMenuOpen, onBack = onBack)
+
     LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
 
     Box(
@@ -57,14 +64,32 @@ fun PlayerScreen(
             .focusable()
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                when (event.key) {
-                    Key.DirectionUp, Key.DirectionLeft -> {
-                        viewModel.previousChannel(); true
+                if (ui.qualityMenuOpen) {
+                    when (event.key) {
+                        Key.DirectionUp, Key.DirectionLeft -> {
+                            viewModel.moveQualitySelection(-1); true
+                        }
+                        Key.DirectionDown, Key.DirectionRight -> {
+                            viewModel.moveQualitySelection(1); true
+                        }
+                        Key.DirectionCenter, Key.Enter -> {
+                            viewModel.confirmQualitySelection(); true
+                        }
+                        else -> false
                     }
-                    Key.DirectionDown, Key.DirectionRight -> {
-                        viewModel.nextChannel(); true
+                } else {
+                    when (event.key) {
+                        Key.DirectionUp, Key.DirectionLeft -> {
+                            viewModel.previousChannel(); true
+                        }
+                        Key.DirectionDown, Key.DirectionRight -> {
+                            viewModel.nextChannel(); true
+                        }
+                        Key.DirectionCenter, Key.Enter -> {
+                            viewModel.openQualityMenu(); true
+                        }
+                        else -> false
                     }
-                    else -> false
                 }
             },
     ) {
@@ -83,17 +108,27 @@ fun PlayerScreen(
             },
         )
 
-        StatsOverlay(
-            channelName = ui.channelName,
-            qualityLabel = ui.qualityLabel,
-            throughputMbps = ui.throughputMbps,
-            resolution = ui.resolution,
-            isBuffering = ui.isBuffering,
+        Column(
             modifier = Modifier.align(Alignment.TopStart).padding(20.dp),
-        )
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatsOverlay(
+                channelName = ui.channelName,
+                emissionLabel = ui.emissionLabel,
+                throughputMbps = ui.throughputMbps,
+                resolution = ui.resolution,
+                isBuffering = ui.isBuffering,
+            )
+            if (ui.qualityMenuOpen) {
+                QualityMenu(
+                    options = ui.qualityOptions,
+                    selectedIndex = ui.qualitySelectedIndex,
+                )
+            }
+        }
 
         Text(
-            text = "▲▼ cambiar canal",
+            text = if (ui.qualityMenuOpen) "▲▼ elegir · OK confirmar" else "OK: calidad  ·  ▲▼◀▶: canal",
             style = MaterialTheme.typography.labelMedium,
             color = Color(0x99FFFFFF),
             modifier = Modifier
@@ -106,7 +141,7 @@ fun PlayerScreen(
 @Composable
 private fun StatsOverlay(
     channelName: String,
-    qualityLabel: String,
+    emissionLabel: String,
     throughputMbps: Double,
     resolution: String?,
     isBuffering: Boolean,
@@ -115,7 +150,7 @@ private fun StatsOverlay(
     val rate = "%.1f".format(throughputMbps)
     val parts = buildList {
         if (channelName.isNotBlank()) add(channelName)
-        if (qualityLabel.isNotBlank()) add(qualityLabel)
+        add("‹ $emissionLabel ›")
         add("$rate Mbps")
         resolution?.let { add(it) }
         if (isBuffering) add("⟳")
@@ -132,5 +167,37 @@ private fun StatsOverlay(
             style = MaterialTheme.typography.labelLarge,
             color = if (isBuffering) MaterialTheme.colorScheme.primary else Color(0xFFE6EAEE),
         )
+    }
+}
+
+@Composable
+private fun QualityMenu(
+    options: List<String>,
+    selectedIndex: Int,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = modifier
+            .width(180.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xE60A0E12))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "Tipo de emisión",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        options.forEachIndexed { index, label ->
+            val selected = index == selectedIndex
+            Text(
+                text = (if (selected) "● " else "○ ") + label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (selected) colors.primary else Color(0xFFE6EAEE),
+            )
+        }
     }
 }
