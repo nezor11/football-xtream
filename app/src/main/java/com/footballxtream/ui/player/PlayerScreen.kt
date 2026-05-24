@@ -130,6 +130,15 @@ fun PlayerScreen(
             }
         }
 
+        ui.errorMessage?.let { msg ->
+            Text(
+                text = "$msg  ·  ▲▼◀▶ para cambiar de canal",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFFE6EAEE),
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+
         Text(
             text = if (ui.qualityMenuOpen) "▲▼ elegir · OK confirmar" else "OK: calidad  ·  ▲▼◀▶: canal",
             style = MaterialTheme.typography.labelMedium,

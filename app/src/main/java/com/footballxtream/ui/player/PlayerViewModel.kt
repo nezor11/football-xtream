@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -41,6 +42,8 @@ data class PlayerUiState(
     /** "Now / next" programme titles from EPG (Xtream only), null when unavailable. */
     val nowProgram: String? = null,
     val nextProgram: String? = null,
+    /** Set when every variant of the channel failed to load (e.g. a dead stream). */
+    val errorMessage: String? = null,
 )
 
 @OptIn(UnstableApi::class)
@@ -76,6 +79,7 @@ class PlayerViewModel(
                 Player.STATE_READY -> {
                     hasStartedOnce = true
                     rebufferCount = 0
+                    _ui.update { it.copy(errorMessage = null) }
                 }
                 Player.STATE_BUFFERING -> {
                     // Only auto-adapt while on Auto; a manual emission type is respected as-is.
@@ -85,6 +89,10 @@ class PlayerViewModel(
                     }
                 }
             }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            tryLowerVariantOrFail()
         }
     }
 
@@ -183,6 +191,7 @@ class PlayerViewModel(
                 qualityMenuOpen = false,
                 nowProgram = null,
                 nextProgram = null,
+                errorMessage = null,
             )
         }
         playUri(variant)
@@ -216,6 +225,20 @@ class PlayerViewModel(
         rebufferCount = 0
         currentQuality = lower.quality
         playUri(group.variantFor(lower.quality) ?: group.bestVariant())
+    }
+
+    /** A stream errored: drop to the next lower variant; if none remain, the channel is dead. */
+    private fun tryLowerVariantOrFail() {
+        val group = currentGroup ?: return
+        val lower = group.variants.firstOrNull { it.quality.rank < currentQuality.rank }
+        if (lower != null) {
+            currentQuality = lower.quality
+            rebufferCount = 0
+            _ui.update { it.copy(isBuffering = true, errorMessage = null) }
+            playUri(group.variantFor(lower.quality) ?: group.bestVariant())
+        } else {
+            _ui.update { it.copy(isBuffering = false, errorMessage = "Canal no disponible") }
+        }
     }
 
     /**
