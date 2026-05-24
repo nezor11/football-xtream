@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.footballxtream.data.ContentRepository
 import com.footballxtream.data.LogoRepository
+import com.footballxtream.data.local.ALL_MIGRATIONS
 import com.footballxtream.data.local.AppDatabase
 import com.footballxtream.data.local.FavoriteFolderDao
 import com.footballxtream.data.local.ProfileDao
@@ -20,7 +21,12 @@ class AppContainer(context: Context) {
         appContext,
         AppDatabase::class.java,
         "football-xtream.db",
-    ).fallbackToDestructiveMigration().build()
+    )
+        // Real migrations preserve saved profiles/favorites across app updates. A downgrade can't be
+        // migrated forward, so only then do we fall back to recreating the database.
+        .addMigrations(*ALL_MIGRATIONS)
+        .fallbackToDestructiveMigrationOnDowngrade()
+        .build()
 
     val profileDao: ProfileDao = database.profileDao()
     val favoriteFolderDao: FavoriteFolderDao = database.favoriteFolderDao()

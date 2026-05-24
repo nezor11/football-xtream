@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [FavoriteFolderEntity::class, ProfileEntity::class],
     version = 3,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteFolderDao(): FavoriteFolderDao
