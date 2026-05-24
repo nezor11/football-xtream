@@ -43,6 +43,7 @@ fun TvTextField(
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
     focusRequester: FocusRequester? = null,
+    helper: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
@@ -90,5 +91,13 @@ fun TvTextField(
                 .border(2.dp, borderColor, shape)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         )
+        if (helper != null) {
+            Text(
+                text = helper,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+            )
+        }
     }
 }
