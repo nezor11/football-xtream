@@ -97,6 +97,7 @@ fun ChannelsScreen(
                 onQueryChange = viewModel::setQuery,
                 onQualitySelected = viewModel::selectQuality,
                 onReload = viewModel::reload,
+                onResume = { viewModel.resumeLast(onPlay) },
                 onFolderClick = { f ->
                     if (f.isSingle) viewModel.play(f, 0, onPlay) else viewModel.openFolder(f)
                 },
@@ -114,6 +115,7 @@ private fun FolderGrid(
     onQueryChange: (String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
     onReload: () -> Unit,
+    onResume: () -> Unit,
     onFolderClick: (ChannelFolder) -> Unit,
     onFolderLongClick: (ChannelFolder) -> Unit,
 ) {
@@ -178,6 +180,21 @@ private fun FolderGrid(
             contentPadding = PaddingValues(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(26.dp),
         ) {
+            content.lastWatched?.let { last ->
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Continuar viendo",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 48.dp),
+                        )
+                        Row(modifier = Modifier.padding(start = 48.dp)) {
+                            ChannelCard(group = last, onClick = onResume)
+                        }
+                    }
+                }
+            }
             items(content.rows) { row ->
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(

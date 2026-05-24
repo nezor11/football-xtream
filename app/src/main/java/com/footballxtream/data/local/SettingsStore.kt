@@ -17,6 +17,7 @@ class SettingsStore(private val context: Context) {
     private object Keys {
         val QUALITY_MODE = stringPreferencesKey("quality_mode")
         val BANDWIDTH_BPS = longPreferencesKey("bandwidth_bps")
+        val LAST_CHANNEL_KEY = stringPreferencesKey("last_channel_key")
     }
 
     val qualityMode: Flow<QualityMode> = context.settingsDataStore.data.map { prefs ->
@@ -26,6 +27,13 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setQualityMode(mode: QualityMode) {
         context.settingsDataStore.edit { it[Keys.QUALITY_MODE] = mode.name }
+    }
+
+    /** Stable key of the last channel the user watched, or null. */
+    val lastChannelKey: Flow<String?> = context.settingsDataStore.data.map { it[Keys.LAST_CHANNEL_KEY] }
+
+    suspend fun setLastChannelKey(key: String) {
+        context.settingsDataStore.edit { it[Keys.LAST_CHANNEL_KEY] = key }
     }
 
     /** Last measured network throughput in bits/sec, 0 if never measured. */

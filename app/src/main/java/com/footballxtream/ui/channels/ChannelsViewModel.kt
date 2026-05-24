@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,6 +34,7 @@ sealed interface ChannelsUiState {
     data class Content(
         val rows: List<ChannelRow>,
         val qualityMode: QualityMode,
+        val lastWatched: ChannelGroup? = null,
     ) : ChannelsUiState
 }
 
@@ -62,13 +64,21 @@ class ChannelsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     val uiState: StateFlow<ChannelsUiState> =
-        combine(load, favoriteNames, settingsStore.qualityMode, query) { loadState, favorites, mode, q ->
+        combine(
+            load,
+            favoriteNames,
+            settingsStore.qualityMode,
+            query,
+            settingsStore.lastChannelKey,
+        ) { loadState, favorites, mode, q, lastKey ->
             when (loadState) {
                 Load.Loading -> ChannelsUiState.Loading
                 is Load.Error -> ChannelsUiState.Error(loadState.message)
                 is Load.Data -> ChannelsUiState.Content(
                     rows = buildRows(loadState.folders, favorites, mode, q),
                     qualityMode = mode,
+                    // Only surface "continue watching" on the normal (unsearched) grid.
+                    lastWatched = if (q.isBlank()) findChannel(loadState.folders, lastKey) else null,
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChannelsUiState.Loading)
@@ -127,6 +137,29 @@ class ChannelsViewModel(
     fun play(folder: ChannelFolder, index: Int, onReady: () -> Unit) {
         playbackSession.start(folder.channels, index)
         onReady()
+    }
+
+    /** Resumes the last watched channel within its folder, so zapping context is preserved. */
+    fun resumeLast(onReady: () -> Unit) {
+        val folders = (load.value as? Load.Data)?.folders ?: return
+        viewModelScope.launch {
+            val key = settingsStore.lastChannelKey.first() ?: return@launch
+            folders.forEach { folder ->
+                val index = folder.channels.indexOfFirst { it.key == key }
+                if (index >= 0) {
+                    play(folder, index, onReady)
+                    return@launch
+                }
+            }
+        }
+    }
+
+    private fun findChannel(folders: List<ChannelFolder>, key: String?): ChannelGroup? {
+        if (key == null) return null
+        folders.forEach { folder ->
+            folder.channels.firstOrNull { it.key == key }?.let { return it }
+        }
+        return null
     }
 
     private fun foldIntoFolders(groups: List<ChannelGroup>): List<ChannelFolder> =
