@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import com.footballxtream.model.XtreamProfile
@@ -46,7 +45,9 @@ interface ProfileDao {
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    // Plain insert so autoGenerate assigns a fresh id; REPLACE made every new profile collide on
+    // id=0 and overwrite the previous one (only one profile ever survived).
+    @Insert
     suspend fun upsert(profile: ProfileEntity): Long
 
     @Delete
