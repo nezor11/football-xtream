@@ -8,7 +8,8 @@ activityCompose = "1.9.3"
 composeBom = "2024.12.01"
 tvMaterial = "1.0.0"
 navigationCompose = "2.8.5"
-media3 = "1.5.1"
+media3 = "1.7.1"
+nextlibMedia3ext = "1.7.1-0.9.0"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 serialization = "1.7.3"
@@ -39,6 +40,7 @@ androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplaye
 androidx-media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 androidx-media3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3" }
+nextlib-media3ext = { group = "io.github.anilbeesetti", name = "nextlib-media3ext", version.ref = "nextlibMedia3ext" }
 
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofitSerialization" }

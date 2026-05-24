@@ -64,6 +64,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.datasource.okhttp)
+    // FFmpeg software decoders (AC-3, E-AC-3, MP2, DTS…) so channels with Dolby
+    // audio are not silent on devices without a hardware Dolby decoder.
+    implementation(libs.nextlib.media3ext)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.serialization)

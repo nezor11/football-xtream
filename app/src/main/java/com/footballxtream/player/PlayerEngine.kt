@@ -5,11 +5,13 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import com.footballxtream.data.local.SettingsStore
 import com.footballxtream.data.remote.XtreamClient
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
@@ -55,8 +57,18 @@ class PlayerEngine(
     private val httpDataSourceFactory: OkHttpDataSource.Factory =
         OkHttpDataSource.Factory(okHttpClient)
 
+    /**
+     * Renderers backed by the NextLib FFmpeg extension. EXTENSION_RENDERER_MODE_ON keeps the
+     * device's hardware decoders first (e.g. AAC, H.264) and falls back to the software FFmpeg
+     * decoders only when no hardware one exists — which is the case for the AC-3 / E-AC-3 (Dolby)
+     * and MP2 audio many IPTV channels (DAZN, Movistar…) use, that would otherwise be silent.
+     */
+    private fun renderersFactory(): DefaultRenderersFactory =
+        NextRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+
     fun build(): ExoPlayer =
-        ExoPlayer.Builder(context)
+        ExoPlayer.Builder(context, renderersFactory())
             .setBandwidthMeter(bandwidthMeter)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
