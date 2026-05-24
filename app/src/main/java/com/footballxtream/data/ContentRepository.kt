@@ -3,6 +3,7 @@ package com.footballxtream.data
 import android.util.Log
 import com.footballxtream.data.remote.XtreamApi
 import com.footballxtream.data.remote.XtreamClient
+import com.footballxtream.data.remote.dto.EpgListingDto
 import com.footballxtream.model.ChannelGroup
 import com.footballxtream.model.EpgProgram
 import com.footballxtream.model.LiveChannel
@@ -12,6 +13,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import java.io.File
 import java.io.IOException
 
@@ -123,12 +128,26 @@ class ContentRepository(
      */
     suspend fun shortEpg(streamId: Int): List<EpgProgram> = withContext(Dispatchers.IO) {
         val current = binding as? Binding.Xtream ?: return@withContext emptyList()
+        val user = current.profile.username
+        val pass = current.profile.password
         runCatching {
-            current.api.getShortEpg(current.profile.username, current.profile.password, streamId)
-                .epgListings
-                .mapNotNull { it.toModel() }
-                .sortedBy { it.start }
+            parseEpg(current.api.getShortEpg(user, pass, streamId))
+                .ifEmpty { parseEpg(current.api.getSimpleDataTable(user, pass, streamId)) }
         }.onFailure { Log.w(TAG, "shortEpg failed for $streamId", it) }.getOrDefault(emptyList())
+    }
+
+    /** Reads listings from either `{"epg_listings":[...]}` or a bare `[...]` array. */
+    private fun parseEpg(element: JsonElement): List<EpgProgram> {
+        val listings = when (element) {
+            is JsonArray -> element
+            is JsonObject -> element["epg_listings"] as? JsonArray ?: return emptyList()
+            else -> return emptyList()
+        }
+        return listings
+            .mapNotNull {
+                runCatching { groupsJson.decodeFromJsonElement<EpgListingDto>(it) }.getOrNull()?.toModel()
+            }
+            .sortedBy { it.start }
     }
 
     private suspend fun loadXtream(binding: Binding.Xtream): List<ChannelGroup> {

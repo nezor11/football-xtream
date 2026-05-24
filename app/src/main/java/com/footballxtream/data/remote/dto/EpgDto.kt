@@ -5,12 +5,11 @@ import com.footballxtream.model.EpgProgram
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** Response of player_api.php?action=get_short_epg. Titles/descriptions are base64-encoded. */
-@Serializable
-data class ShortEpgResponse(
-    @SerialName("epg_listings") val epgListings: List<EpgListingDto> = emptyList(),
-)
-
+/**
+ * One EPG listing from get_short_epg / get_simple_data_table. Titles/descriptions are base64.
+ * The enclosing response may be `{"epg_listings":[...]}` or a bare `[...]` array depending on the
+ * panel; both are handled in ContentRepository.
+ */
 @Serializable
 data class EpgListingDto(
     val title: String? = null,
