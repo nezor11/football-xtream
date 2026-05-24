@@ -1,65 +1,90 @@
 # Football Xtream
 
-Reproductor IPTV libre para **Android TV / Google TV, Fire TV y móvil/tablet Android**, que se
-conecta a servidores mediante el protocolo **Xtream Codes**. Pensado para una experiencia
-*TV-first* (mando a distancia, foco D-pad) con un enfoque inicial en contenido deportivo.
+Reproductor IPTV libre para **Android TV / Google TV, Fire TV y móvil/tablet Android**, con un
+enfoque *TV-first* (mando a distancia, foco D-pad) y centrado en **deporte / fútbol en directo**.
+Soporta tanto el protocolo **Xtream Codes** como **listas M3U/M3U-plus**.
 
-> **Estado:** MVP en construcción. Funciona el flujo **login → TV en directo → reproducción**,
-> con favoritos. Ver [Roadmap](#roadmap).
+> **Estado:** funcional. Login (Xtream o M3U) → navegación de canales de deporte → reproducción,
+> con audio Dolby por software, buscador, carpetas con logos y "continuar viendo". Probado en un
+> Chromecast con Google TV. Ver [Roadmap](#roadmap).
 
 ## Características
 
-Disponible en el MVP actual:
-- **Selector de perfiles** sencillo (varios servidores Xtream guardados; elegir = entrar).
-- Pantalla **solo deporte**: filtra automáticamente los canales de deporte/fútbol y oculta el resto.
-- **Deduplicación por calidad**: las múltiples versiones del mismo canal (4K/FHD/HD/SD) se agrupan en un único canal lógico.
-- **Filtro de calidad** con chips `Auto · 4K · FHD · HD · SD · Todas`.
-- **Calidad automática según la red** (modo Auto): elige la mejor variante que cabe en tu ancho de banda y baja de calidad sola si detecta cortes.
-- **Indicador de transferencia** en el reproductor (Mbps en vivo + resolución) para confirmar que está descargando.
-- **Pre-buffering** ampliado para suavizar la reproducción IPTV.
+- **Dos formas de conectar**: perfil **Xtream** (servidor + usuario + contraseña) o **lista M3U**
+  (pega la URL). Varios perfiles guardados; se eligen desde un selector sencillo.
+- **Solo deporte**: filtra automáticamente los canales de deporte/fútbol (palabras clave
+  multiidioma) y **descarta el resto, el VOD (películas/series) y canales generales mal
+  categorizados**.
+- **Carpetas por marca**: agrupa las versiones de un canal (p. ej. *beIN Sports 1/2/3…*) en una
+  carpeta con su logo. Los logos que la lista no trae se buscan en la base de datos pública
+  **iptv-org** y se cachean en disco.
+- **Deduplicación por calidad**: las variantes del mismo canal (4K/2K/FHD/HD/SD) se unen en un
+  canal lógico, incluso cuando la calidad va pegada al nombre (`…TVHD`).
+- **Audio por software (FFmpeg)**: decodifica **AC-3 / E-AC-3 (Dolby), MP2 y DTS**, para que
+  canales que el dispositivo no sabe decodificar (típico de DAZN/Movistar) **tengan sonido**.
+- **Buscador** para localizar canales por nombre al instante.
+- **Continuar viendo**: recuerda y reanuda el último canal visto.
+- **Reproductor TV**:
+  - **Zapping con el mando** (flechas arriba/abajo/izq/der = cambiar de canal).
+  - **Selector de calidad** con OK (Auto · 4K · 2K · FHD · HD · SD del canal).
+  - **Calidad automática** según el ancho de banda medido, con bajada automática si hay cortes; si
+    una variante falla (stream muerto), prueba otra y, si todas fallan, avisa.
+  - **Overlay discreto** (canal · calidad · Mbps · resolución) abajo-izquierda para no tapar el
+    marcador; tasa de transferencia que se refresca a menudo.
+  - **EPG "Ahora / Luego"** para perfiles Xtream cuyo servidor sirva guía.
+  - Pre-buffering ampliado para suavizar la reproducción IPTV.
 - **Favoritos** (mantener pulsado una tarjeta).
-- UI con **Jetpack Compose for TV** y navegación por mando.
+- UI con **Jetpack Compose for TV**.
 
 ## Stack
 
 - **Kotlin** + **Jetpack Compose for TV** (`androidx.tv:tv-material`)
-- **Media3 / ExoPlayer** (+ HLS) para reproducción
-- **Retrofit + OkHttp + kotlinx.serialization** para la API Xtream
-- **Room** (favoritos) y **DataStore** (perfil)
+- **Media3 / ExoPlayer** (+ HLS) con **extensión FFmpeg** (`io.github.anilbeesetti:nextlib-media3ext`)
+  para los códecs de audio de IPTV (AC-3/E-AC-3/MP2/DTS)
+- **Retrofit + OkHttp + kotlinx.serialization** para la API Xtream; parser M3U propio
+- **Room** (perfiles y favoritos) y **DataStore** (ajustes: calidad, último canal)
+- **Coil** para imágenes; logos vía la base de datos pública **iptv-org**
 - Arquitectura **MVVM** con inyección manual de dependencias (`AppContainer`)
-- **Coil** para imágenes
+
+## Cómo añadir tu lista
+
+En **Añadir** elige el modo:
+
+- **Xtream**: `URL del servidor` (`http://host:puerto`), `usuario` y `contraseña`.
+- **Lista M3U**: pega la URL de tu lista (`…/get.php?...&type=m3u_plus` o similar).
+
+> Nota: algunos proveedores sirven la API Xtream pero bloquean su CDN de `/live/` para clientes
+> genéricos; en ese caso usa el modo **M3U**, que suele funcionar.
 
 ## Requisitos para compilar
 
-Este proyecto se compila con **Android Studio** (recomendado, trae JDK 17 y el SDK):
+Se compila con **Android Studio** (recomendado, trae JDK 17 y el SDK):
 
-1. Instala [Android Studio](https://developer.android.com/studio).
-2. Abre la carpeta del proyecto. Android Studio descargará el SDK de Android necesario
-   (compileSdk 35) y sincronizará Gradle automáticamente.
-3. Ejecuta sobre:
-   - un **emulador de Android TV** (Device Manager → Android TV 1080p), o
-   - un dispositivo real (Android TV, Fire TV o móvil) por ADB.
+1. Instala [Android Studio](https://developer.android.com/studio) y abre la carpeta del proyecto.
+2. Android Studio descargará el SDK (compileSdk 35) y sincronizará Gradle.
+3. Ejecuta en un **Android TV / Fire TV / móvil** real por ADB (recomendado) o un emulador.
 
-Por línea de comandos (requiere JDK 17 y el Android SDK con `local.properties` apuntando a él):
+Por línea de comandos (requiere JDK 17 y el Android SDK con `local.properties`):
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-> minSdk 24 (Android 7.0). Los Fire TV muy antiguos con Fire OS 5 (Android 5.1) no están
-> soportados en esta versión.
+El APK se divide **por ABI** para reducir su tamaño (FFmpeg pesa por arquitectura), así que se
+generan `app-arm64-v8a-debug.apk` y `app-armeabi-v7a-debug.apk` (sin APK universal). La mayoría de
+Android TV / Fire TV usan **arm64-v8a**.
+
+> minSdk 24 (Android 7.0). Los Fire TV muy antiguos con Fire OS 5 (Android 5.1) no están soportados.
 
 ## Roadmap
 
-- [ ] **EPG / Guía** de programación (`get_short_epg`, `get_simple_data_table`).
-- [ ] Búsqueda de canales y mejoras en la detección de deportes/fútbol.
-- [ ] Recordar la última calidad por canal y mejorar la lógica de auto-bajada.
-- [ ] Soporte de **catch-up / timeshift**.
-- [ ] Decodificación ampliada con la **extensión FFmpeg de Media3** (códecs MPEG-TS poco comunes;
-      requiere compilar la extensión con el NDK).
-- [ ] Chromecast opcional (desacoplado para no depender de Google Play Services en Fire TV).
+- [ ] **Catch-up / timeshift** (`has_archive`).
+- [ ] **Migraciones de Room** (hoy se usa borrado destructivo; evitar perder perfiles/favoritos al
+      actualizar la app).
+- [ ] EPG desde **XMLTV** cuando el servidor no devuelve `get_short_epg`.
 - [ ] Cifrado de credenciales en reposo.
-- [ ] (Opcional) VOD / Películas y Series, si se decide ampliar más allá del deporte.
+- [ ] Chromecast opcional (desacoplado para no depender de Google Play Services en Fire TV).
+- [ ] (Opcional) VOD / Películas y Series, si se amplía más allá del deporte.
 
 ## Aviso legal
 
