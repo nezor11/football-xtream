@@ -26,8 +26,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,16 +70,18 @@ fun ProfilesScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 color = colors.onBackground,
             )
+            val menuOpen = menuProfile != null
             LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 items(profiles) { profile ->
                     ProfileCard(
                         profile = profile,
+                        focusable = !menuOpen,
                         onClick = { viewModel.select(profile, onProfileSelected) },
                         onLongClick = { menuProfile = profile },
                     )
                 }
                 item {
-                    AddCard(onClick = onAddProfile)
+                    AddCard(focusable = !menuOpen, onClick = onAddProfile)
                 }
             }
             if (profiles.isNotEmpty()) {
@@ -112,12 +120,32 @@ private fun ProfileActionMenu(
 ) {
     val colors = MaterialTheme.colorScheme
     val firstButton = remember { FocusRequester() }
+    // The long-press that opens this menu ends with a key-up (the OK release) that Compose would
+    // otherwise deliver to the freshly focused "Editar" button, triggering it instantly. That stray
+    // release is a KeyUp with no matching KeyDown inside the menu, so swallow select-key KeyUps
+    // until we've seen a real KeyDown here.
+    var sawKeyDown by remember { mutableStateOf(false) }
 
     BackHandler(enabled = true) { onDismiss() }
     LaunchedEffect(Unit) { runCatching { firstButton.requestFocus() } }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000))
+            .onPreviewKeyEvent { event ->
+                val isSelect = event.key == Key.DirectionCenter ||
+                    event.key == Key.Enter ||
+                    event.key == Key.NumPadEnter
+                when {
+                    event.type == KeyEventType.KeyDown -> {
+                        sawKeyDown = true
+                        false
+                    }
+                    event.type == KeyEventType.KeyUp && isSelect && !sawKeyDown -> true
+                    else -> false
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -155,11 +183,16 @@ private fun ProfileActionMenu(
 @Composable
 private fun ProfileCard(
     profile: ProfileEntity,
+    focusable: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
-    Card(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.width(190.dp)) {
+    Card(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = Modifier.width(190.dp).focusProperties { canFocus = focusable },
+    ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(120.dp),
             contentAlignment = Alignment.Center,
@@ -214,9 +247,12 @@ private fun TypeBadge(isM3u: Boolean) {
 }
 
 @Composable
-private fun AddCard(onClick: () -> Unit) {
+private fun AddCard(focusable: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Card(onClick = onClick, modifier = Modifier.width(190.dp)) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(190.dp).focusProperties { canFocus = focusable },
+    ) {
         Box(
             modifier = Modifier.fillMaxWidth().height(120.dp),
             contentAlignment = Alignment.Center,
