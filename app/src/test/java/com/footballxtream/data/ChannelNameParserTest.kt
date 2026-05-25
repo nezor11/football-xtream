@@ -62,31 +62,38 @@ class ChannelNameParserTest {
     // --- isSports() ---
 
     @Test
-    fun isSports_nameAlwaysWins() {
+    fun isSports_byNameTerm() {
+        // A generic sport term at a word start is enough — no brand list involved.
         assertTrue(ChannelNameParser.isSports("beIN Sports NEWS", null))
-        // A "sport" in the name keeps it even if the name is also a known general broadcaster.
-        assertTrue(ChannelNameParser.isSports("Al Jazeera Sport", null))
+        assertTrue(ChannelNameParser.isSports("Sky Sport 1", null)) // "sport" as a word
+        assertTrue(ChannelNameParser.isSports("Movistar LaLiga", null)) // matches "laliga"
+        // "Eurosport" glues "sport" mid-word, so it is NOT detected by name (relies on category).
+        assertFalse(ChannelNameParser.isSports("Eurosport 1", null))
     }
 
     @Test
-    fun isSports_categoryCountsUnlessGeneralBroadcaster() {
+    fun isSports_byCategory() {
+        // Brand-only names ("DAZN 1") have no sport term, so they qualify via their category.
+        assertTrue(ChannelNameParser.isSports("DAZN 1", "Deportes"))
         assertTrue(ChannelNameParser.isSports("La 1", "Deportes"))
-        // Mis-filed general/news channel inside a sports category is dropped.
-        assertFalse(ChannelNameParser.isSports("2M Maroc", "BEINSPORT"))
     }
 
     @Test
-    fun isSports_nonSportRejected() {
+    fun isSports_rejectedWhenNeitherNameNorCategoryIsSport() {
         assertFalse(ChannelNameParser.isSports("CNN", "Noticias"))
         assertFalse(ChannelNameParser.isSports("Película", "Cine"))
+        // Brand-only name with no sport category is no longer auto-detected (agnostic trade-off).
+        assertFalse(ChannelNameParser.isSports("DAZN 1", "General"))
     }
 
     // --- isFootball() ---
 
     @Test
-    fun isFootball() {
+    fun isFootball_byCompetitionOrSportTerm() {
         assertTrue(ChannelNameParser.isFootball("LaLiga TV", null))
-        assertTrue(ChannelNameParser.isFootball("beIN Sports 1", null))
+        assertTrue(ChannelNameParser.isFootball("DAZN LaLiga", null)) // via "laliga", not the brand
+        // A generic sports channel is sport but not specifically football.
+        assertFalse(ChannelNameParser.isFootball("beIN Sports 1", null))
         assertFalse(ChannelNameParser.isFootball("NBA TV", null))
     }
 

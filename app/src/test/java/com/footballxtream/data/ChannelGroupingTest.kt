@@ -22,18 +22,18 @@ class ChannelGroupingTest {
     fun build_mergesQualityVariantsOfSameChannel() {
         val groups = ChannelGrouping.build(
             listOf(
-                channel("beIN Sports 1 HD", "Sports", epgId = "b1"),
-                channel("beIN Sports 1 SD", "Sports", epgId = "b1"),
+                channel("Movistar LaLiga HD", "Sports", epgId = "b1"),
+                channel("Movistar LaLiga SD", "Sports", epgId = "b1"),
             ),
         )
         assertEquals(1, groups.size)
         val g = groups.first()
-        assertEquals("beIN Sports 1", g.displayName)
+        assertEquals("Movistar LaLiga", g.displayName)
         // Variants sorted highest quality first.
         assertEquals(listOf(Quality.HD, Quality.SD), g.variants.map { it.quality })
         assertEquals(setOf(Quality.HD, Quality.SD), g.availableQualities)
         assertEquals("b1", g.epgId)
-        assertTrue(g.isFootball)
+        assertTrue(g.isFootball) // via the "laliga" competition term, not any brand
     }
 
     @Test

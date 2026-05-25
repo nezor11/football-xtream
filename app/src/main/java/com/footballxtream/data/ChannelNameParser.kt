@@ -44,9 +44,14 @@ object ChannelNameParser {
     private val noise = Regex("""[^\p{L}\p{N}\s&+./'-]""")
     private val multiSpace = Regex("""\s{2,}""")
 
+    // Brand-agnostic on purpose: only generic sport terms, sport types and competitions — never
+    // channel brands (DAZN, beIN, Movistar, Sky Sport…). A brand-only channel ("DAZN 1") is caught
+    // by its category instead (see [isSports]). Keywords match at a word start (see [boundaryRegex]),
+    // so "spor"/"sport" still covers brands that begin a word with it ("SporTV", "Sky Sport",
+    // "Fox Sports") but not ones where it is glued mid-word ("Eurosport") — those rely on category.
     private val sportsKeywords = listOf(
         // Generic "sport" in many languages
-        "sport", "deporte", "esporte", "esport", "spor", "sportv", "رياضة", "رياضي", "اسبور",
+        "sport", "deporte", "esporte", "esport", "spor", "رياضة", "رياضي", "اسبور",
         "спорт", "체육", "运动", "體育",
         // Football / soccer (multi-language)
         "futbol", "fútbol", "football", "soccer", "fußball", "fussball", "calcio", "futebol",
@@ -55,14 +60,7 @@ object ChannelNameParser {
         "laliga", "la liga", "liga", "ligue", "premier league", "championship", "bundesliga",
         "eredivisie", "serie a", "serie b", "primeira", "champions", "uefa", "europa league",
         "conference league", "copa", "libertadores", "sudamericana", "fa cup", "efl", "mls",
-        "super lig", "jupiler", "superliga", "eliteserien", "allsvenskan", "fifa", "uefa",
-        // Sports channel brands
-        "dazn", "bein", "espn", "fox sport", "sky sport", "tnt sport", "bt sport",
-        "movistar deport", "movistar liga", "movistar campeones", "movistar laliga", "gol ",
-        "goltv", "eurosport", "tudn", "tyc", "ssc ", "rmc sport", "canal+ sport", "canal plus sport",
-        "supersport", "ssport", "digi sport", "arena sport", "sportklub", "nova sport", "sport tv",
-        "sport1", "sportdigital", "premier sport", "viaplay", "setanta", "astro sport", "elclasico",
-        "sportitalia", "primesport",
+        "super lig", "jupiler", "superliga", "eliteserien", "allsvenskan", "fifa",
         // Basketball
         "baloncesto", "basket", "basketball", "nba", "acb", "euroleague", "euroliga", "basquet",
         // Tennis
@@ -79,6 +77,8 @@ object ChannelNameParser {
         "darts", "racing", "olympic", "olimpic", "juegos olimpicos", "extreme",
     )
 
+    // Football by sport/competition terms only — no channel brands. A football channel named after
+    // its competition still matches (LaLiga, Champions…); "DAZN LaLiga" matches via "laliga".
     private val footballKeywords = listOf(
         "futbol", "fútbol", "football", "soccer", "fußball", "fussball", "calcio", "futebol",
         "voetbal", "fudbal", "ποδόσφαιρο",
@@ -86,17 +86,6 @@ object ChannelNameParser {
         "serie a", "serie b", "primeira liga", "ligue 1", "ligue 2",
         "champions", "uefa", "europa league", "conference league", "copa del rey", "copa",
         "libertadores", "sudamericana", "fa cup", "efl", "mls", "super lig", "jupiler", "fifa",
-        "bein sport", "dazn laliga", "movistar liga", "movistar campeones", "movistar laliga",
-        "gol ", "goltv", "tudn", "premier sport",
-    )
-
-    // General / news broadcasters that panels often dump into a sports category. They are excluded
-    // only when a channel qualifies *via its category* (see [isSports]); any channel whose own name
-    // says "sport"/"futbol"/… is always kept, so e.g. "beIN Sports NEWS" survives.
-    private val nonSportsKeywords = listOf(
-        "2m", "al aoula", "arrabia", "athaqafia", "assadissa", "tamazight", "laayoune", "medi1",
-        "medi 1", "al jazeera", "al arabiya", "euronews", "france 24", "france24", "i24", "cnn",
-        "bbc news", "sky news", "rt news", "trt haber", "noticias", "telediario",
     )
 
     // Trailing channel number (e.g. "beIN Sports 1" -> "beIN Sports"); keeps 4-digit+ tokens.
@@ -142,15 +131,11 @@ object ChannelNameParser {
     // "Liga SmartBank", and prefixes like "spor" -> "Sport"/"SporTV".
     private val sportsRegex = boundaryRegex(sportsKeywords)
     private val footballRegex = boundaryRegex(footballKeywords)
-    private val nonSportsRegex = boundaryRegex(nonSportsKeywords)
 
-    fun isSports(channelName: String, categoryName: String?): Boolean {
-        // A sport in the name always counts (protects "beIN Sports NEWS", "Al Jazeera Sport"…).
-        if (matchesAny(channelName, sportsRegex)) return true
-        // Otherwise a sports category counts, unless the name is a known general/news broadcaster
-        // the provider mis-filed under that category (e.g. "2M Maroc" inside "BEINSPORT").
-        return matchesAny(categoryName, sportsRegex) && !matchesAny(channelName, nonSportsRegex)
-    }
+    // Agnostic: a channel is sport if a sport term appears in its name or its category. No specific
+    // channel names are listed anywhere — neither to include (brands) nor to exclude (broadcasters).
+    fun isSports(channelName: String, categoryName: String?): Boolean =
+        matchesAny(channelName, sportsRegex) || matchesAny(categoryName, sportsRegex)
 
     fun isFootball(channelName: String, categoryName: String?): Boolean =
         matchesAny(channelName, footballRegex) || matchesAny(categoryName, footballRegex)
