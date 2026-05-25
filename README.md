@@ -11,7 +11,8 @@ Soporta tanto el protocolo **Xtream Codes** como **listas M3U/M3U-plus**.
 ## Características
 
 - **Dos formas de conectar**: perfil **Xtream** (servidor + usuario + contraseña) o **lista M3U**
-  (pega la URL). Varios perfiles guardados; se eligen desde un selector sencillo.
+  (pega la URL). Varios perfiles guardados que se eligen desde un selector; se pueden **renombrar
+  y editar** (mantener pulsado un perfil → *Editar* / *Eliminar*).
 - **Solo deporte**: filtra automáticamente los canales de deporte/fútbol (palabras clave
   multiidioma) y **descarta el resto, el VOD (películas/series) y canales generales mal
   categorizados**.
@@ -31,7 +32,8 @@ Soporta tanto el protocolo **Xtream Codes** como **listas M3U/M3U-plus**.
     una variante falla (stream muerto), prueba otra y, si todas fallan, avisa.
   - **Overlay discreto** (canal · calidad · Mbps · resolución) abajo-izquierda para no tapar el
     marcador; tasa de transferencia que se refresca a menudo.
-  - **EPG "Ahora / Luego"** para perfiles Xtream cuyo servidor sirva guía.
+  - **EPG "Ahora / Luego"**: vía la API en perfiles **Xtream**, y vía **XMLTV** en listas **M3U**
+    que declaren su guía (`x-tvg-url` + `tvg-id`), descargada y parseada en segundo plano.
   - Pre-buffering ampliado para suavizar la reproducción IPTV.
 - **Favoritos** (mantener pulsado una tarjeta).
 - UI con **Jetpack Compose for TV**.
@@ -42,7 +44,8 @@ Soporta tanto el protocolo **Xtream Codes** como **listas M3U/M3U-plus**.
 - **Media3 / ExoPlayer** (+ HLS) con **extensión FFmpeg** (`io.github.anilbeesetti:nextlib-media3ext`)
   para los códecs de audio de IPTV (AC-3/E-AC-3/MP2/DTS)
 - **Retrofit + OkHttp + kotlinx.serialization** para la API Xtream; parser M3U propio
-- **Room** (perfiles y favoritos) y **DataStore** (ajustes: calidad, último canal)
+- **Room** (perfiles y favoritos, con migraciones para no perder datos al actualizar) y
+  **DataStore** (ajustes: calidad, último canal)
 - **Coil** para imágenes; logos vía la base de datos pública **iptv-org**
 - Arquitectura **MVVM** con inyección manual de dependencias (`AppContainer`)
 
@@ -79,12 +82,12 @@ Android TV / Fire TV usan **arm64-v8a**.
 ## Roadmap
 
 - [ ] **Catch-up / timeshift** (`has_archive`).
-- [ ] **Migraciones de Room** (hoy se usa borrado destructivo; evitar perder perfiles/favoritos al
-      actualizar la app).
-- [ ] EPG desde **XMLTV** cuando el servidor no devuelve `get_short_epg`.
-- [ ] Cifrado de credenciales en reposo.
-- [ ] Chromecast opcional (desacoplado para no depender de Google Play Services en Fire TV).
+- [ ] **Cifrado de credenciales en reposo.**
+- [ ] **Chromecast opcional** (desacoplado para no depender de Google Play Services en Fire TV).
 - [ ] (Opcional) VOD / Películas y Series, si se amplía más allá del deporte.
+
+Hecho recientemente: migraciones de Room (sin borrado destructivo), EPG vía XMLTV para listas M3U,
+edición/renombrado de perfiles.
 
 ## Aviso legal
 
