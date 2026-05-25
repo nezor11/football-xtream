@@ -178,7 +178,7 @@ private fun FolderGrid(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(26.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             content.lastWatched?.let { last ->
                 item {
@@ -204,7 +204,9 @@ private fun FolderGrid(
                         modifier = Modifier.padding(start = 48.dp),
                     )
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 48.dp),
+                        // Vertical padding leaves room for the focus zoom so the grown card is not
+                        // clipped at the row's top/bottom edges.
+                        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         items(row.folders) { folder ->
@@ -246,7 +248,8 @@ private fun FolderDetail(
         )
         LazyVerticalGrid(
             columns = GridCells.Adaptive(220.dp),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 4.dp),
+            // Vertical padding so the focus zoom on the top/bottom rows is not clipped.
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -341,6 +344,7 @@ private fun ImageCard(
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier.width(210.dp),
+        scale = CardDefaults.scale(focusedScale = 1.06f),
         border = CardDefaults.border(
             focusedBorder = Border(
                 border = androidx.compose.foundation.BorderStroke(3.dp, colors.primary),
