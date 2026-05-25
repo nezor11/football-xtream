@@ -107,8 +107,11 @@ object XmltvEpg {
         }
     }
 
-    /** Parses an XMLTV timestamp ("20260525200000 +0200" or bare UTC) to epoch millis, 0 if invalid. */
-    private fun parseTime(value: String?): Long {
+    /**
+     * Parses an XMLTV timestamp ("20260525200000 +0200" or bare UTC) to epoch millis, 0 if invalid.
+     * Internal (not private) so it can be unit-tested directly.
+     */
+    internal fun parseTime(value: String?): Long {
         if (value.isNullOrBlank()) return 0L
         val v = value.trim()
         val digits = v.takeWhile { it.isDigit() }
