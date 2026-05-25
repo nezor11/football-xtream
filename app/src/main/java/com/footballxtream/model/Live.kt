@@ -19,4 +19,6 @@ data class LiveChannel(
     val iconUrl: String?,
     val categoryName: String?,
     val streamUrl: String,
+    /** XMLTV channel id (M3U `tvg-id`), used to look up the guide for M3U sources. */
+    val epgId: String? = null,
 )

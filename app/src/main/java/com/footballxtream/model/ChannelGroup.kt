@@ -16,6 +16,8 @@ data class ChannelGroup(
     val iconUrl: String?,
     val isFootball: Boolean,
     val variants: List<ChannelVariant>,
+    /** XMLTV channel id of the representative variant, for M3U guide lookup. */
+    val epgId: String? = null,
 ) {
     val availableQualities: Set<Quality> = variants.map { it.quality }.toSet()
 

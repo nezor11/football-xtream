@@ -39,7 +39,7 @@ data class PlayerUiState(
     val qualityMenuOpen: Boolean = false,
     val qualityOptions: List<String> = emptyList(),
     val qualitySelectedIndex: Int = 0,
-    /** "Now / next" programme titles from EPG (Xtream only), null when unavailable. */
+    /** "Now / next" programme titles from EPG (Xtream API or M3U's XMLTV), null when unavailable. */
     val nowProgram: String? = null,
     val nextProgram: String? = null,
     /** Set when every variant of the channel failed to load (e.g. a dead stream). */
@@ -195,13 +195,13 @@ class PlayerViewModel(
             )
         }
         playUri(variant)
-        loadEpg(group, variant.channel.streamId)
+        loadEpg(group)
     }
 
-    /** Fetches "now / next" EPG for the playing channel (no-op for non-Xtream sources). */
-    private fun loadEpg(group: ChannelGroup, streamId: Int) {
+    /** Fetches "now / next" EPG for the playing channel (Xtream API or M3U's XMLTV guide). */
+    private fun loadEpg(group: ChannelGroup) {
         viewModelScope.launch {
-            val epg = repository.shortEpg(streamId)
+            val epg = repository.epgFor(group)
             if (currentGroup !== group || epg.isEmpty()) return@launch
             val now = System.currentTimeMillis()
             val current = epg.firstOrNull { it.nowFlag }

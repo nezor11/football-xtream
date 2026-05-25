@@ -32,6 +32,7 @@ object ChannelGrouping {
                         ChannelNameParser.isFootball(it.name, it.categoryName)
                     },
                     variants = variants,
+                    epgId = variants.firstNotNullOfOrNull { it.channel.epgId },
                 )
             }
             .sortedBy { it.displayName.lowercase() }

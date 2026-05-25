@@ -78,4 +78,17 @@ object XtreamClient {
             return response.body?.source()?.readUtf8Line().orEmpty()
         }
     }
+
+    /**
+     * Streams a GET body to [block] without buffering it all in memory — used to parse large XMLTV
+     * EPG files. The response stays open for the duration of [block]; do not leak the stream.
+     */
+    fun <T> withStream(url: String, block: (java.io.InputStream) -> T): T {
+        val request = Request.Builder().url(url.trim()).build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            val body = response.body ?: throw IOException("Empty body")
+            return block(body.byteStream())
+        }
+    }
 }

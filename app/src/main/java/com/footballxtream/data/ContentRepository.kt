@@ -9,7 +9,10 @@ import com.footballxtream.model.EpgProgram
 import com.footballxtream.model.LiveChannel
 import com.footballxtream.model.XtreamProfile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -40,6 +43,15 @@ class ContentRepository(
     private var binding: Binding? = null
 
     private val groupsJson = Json { ignoreUnknownKeys = true }
+
+    // --- XMLTV EPG state for the active M3U source (Xtream uses get_short_epg instead) ---
+    @Volatile private var m3uSourceKey: String = ""
+    @Volatile private var m3uEpgUrls: List<String> = emptyList()
+    @Volatile private var m3uNeededEpgIds: Set<String> = emptySet()
+    @Volatile private var m3uEpgIndex: Map<String, List<EpgProgram>>? = null
+    @Volatile private var m3uEpgBuiltKey: String = ""
+    @Volatile private var m3uEpgBuiltAt: Long = 0L
+    private val epgMutex = Mutex()
 
     // --- Restore a saved profile without a network round-trip ---
 
@@ -95,14 +107,24 @@ class ContentRepository(
         if (!forceRefresh && cacheFile.exists() &&
             System.currentTimeMillis() - cacheFile.lastModified() < CACHE_TTL_MS
         ) {
-            runCatching { groupsJson.decodeFromString<List<ChannelGroup>>(cacheFile.readText()) }
+            runCatching { groupsJson.decodeFromString<M3uCache>(cacheFile.readText()) }
                 .getOrNull()
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { return it }
+                ?.takeIf { it.groups.isNotEmpty() }
+                ?.let { return it.groups.also { g -> bindEpgSource(url, it.epgUrls, g) } }
         }
-        val groups = ChannelGrouping.build(M3uParser.parse(XtreamClient.fetchText(url)))
-        runCatching { cacheFile.writeText(groupsJson.encodeToString(groups)) }
+        val content = XtreamClient.fetchText(url)
+        val groups = ChannelGrouping.build(M3uParser.parse(content))
+        val epgUrls = M3uParser.epgUrls(content)
+        runCatching { cacheFile.writeText(groupsJson.encodeToString(M3uCache(epgUrls, groups))) }
+        bindEpgSource(url, epgUrls, groups)
         return groups
+    }
+
+    /** Records the EPG source for the active M3U so [epgFor] can build the guide on demand. */
+    private fun bindEpgSource(url: String, epgUrls: List<String>, groups: List<ChannelGroup>) {
+        m3uSourceKey = url
+        m3uEpgUrls = epgUrls
+        m3uNeededEpgIds = groups.mapNotNull { it.epgId }.toSet()
     }
 
     /**
@@ -121,6 +143,45 @@ class ContentRepository(
                 }
             }
         }
+
+    /**
+     * "Now / next" EPG for a channel, whatever the source: Xtream via get_short_epg, M3U via the
+     * XMLTV guide declared in the playlist (x-tvg-url). Returns empty when no guide is available.
+     */
+    suspend fun epgFor(group: ChannelGroup): List<EpgProgram> =
+        when (binding) {
+            is Binding.Xtream -> shortEpg(group.bestVariant().channel.streamId)
+            is Binding.M3u -> withContext(Dispatchers.IO) { m3uEpg(group) }
+            null -> emptyList()
+        }
+
+    private suspend fun m3uEpg(group: ChannelGroup): List<EpgProgram> {
+        val id = group.epgId ?: return emptyList()
+        return ensureEpgIndex()?.get(id).orEmpty()
+    }
+
+    /**
+     * Builds (once, then cached with a TTL) the XMLTV "now/next" index for the channels of the
+     * active M3U source. The first guide request pays the download/parse; later ones are instant.
+     */
+    private suspend fun ensureEpgIndex(): Map<String, List<EpgProgram>>? {
+        val urls = m3uEpgUrls
+        val ids = m3uNeededEpgIds
+        val key = m3uSourceKey
+        if (urls.isEmpty() || ids.isEmpty()) return null
+        m3uEpgIndex?.let { if (m3uEpgBuiltKey == key && isEpgFresh()) return it }
+        return epgMutex.withLock {
+            m3uEpgIndex?.let { if (m3uEpgBuiltKey == key && isEpgFresh()) return it }
+            val built = XmltvEpg.index(urls, ids)
+            m3uEpgIndex = built
+            m3uEpgBuiltKey = key
+            m3uEpgBuiltAt = System.currentTimeMillis()
+            built
+        }
+    }
+
+    private fun isEpgFresh(): Boolean =
+        System.currentTimeMillis() - m3uEpgBuiltAt < EPG_TTL_MS
 
     /**
      * "Now / next" EPG for a stream. Only Xtream sources expose it (via get_short_epg); M3U returns
@@ -170,6 +231,14 @@ class ContentRepository(
     private companion object {
         const val TAG = "FXContent"
         const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
-        const val CACHE_VERSION = 9 // bump when parsing/filtering/grouping logic changes
+        const val CACHE_VERSION = 10 // bump when parsing/filtering/grouping logic or cache shape changes
+        const val EPG_TTL_MS = 2L * 60 * 60 * 1000 // 2 h — rebuild the XMLTV index at most this often
     }
 }
+
+/** On-disk cache for an M3U source: the EPG URLs from its header plus the grouped sports channels. */
+@Serializable
+private data class M3uCache(
+    val epgUrls: List<String> = emptyList(),
+    val groups: List<ChannelGroup>,
+)
