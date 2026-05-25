@@ -34,8 +34,11 @@ object ChannelNameParser {
         RegexOption.IGNORE_CASE,
     )
 
-    // Leading provider/country prefix like "ES|", "ES:", "EN -", "VIP >".
-    private val leadingPrefix = Regex("""^\s*[\p{L}0-9]{1,4}\s*[|:>\-•]\s*""")
+    // Leading provider/country prefix: "ES|", "ES:", "EN -", "VIP >" and the pipe-wrapped form
+    // "|IT| ", "|DE|  " that many M3U panels use. The optional leading separator catches the
+    // wrapped form; a trailing separator is always required, so a plain word ("La Liga", "Al
+    // Jazeera") is never mistaken for a prefix.
+    private val leadingPrefix = Regex("""^\s*[|:>\-•]?\s*[\p{L}0-9]{1,4}\s*[|:>\-•]\s*""")
     private val bracketed = Regex("""[\[(][^\])]*[\])]""")
     // Strip emoji / flags / leftover symbol noise (keep letters, numbers, spaces, basic punctuation).
     private val noise = Regex("""[^\p{L}\p{N}\s&+./'-]""")

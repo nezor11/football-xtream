@@ -231,7 +231,7 @@ class ContentRepository(
     private companion object {
         const val TAG = "FXContent"
         const val CACHE_TTL_MS = 12L * 60 * 60 * 1000 // 12 h
-        const val CACHE_VERSION = 10 // bump when parsing/filtering/grouping logic or cache shape changes
+        const val CACHE_VERSION = 11 // bump when parsing/filtering/grouping logic or cache shape changes
         const val EPG_TTL_MS = 2L * 60 * 60 * 1000 // 2 h — rebuild the XMLTV index at most this often
     }
 }
