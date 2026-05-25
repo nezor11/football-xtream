@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -41,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Button
 import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.footballxtream.data.local.ProfileEntity
@@ -61,18 +61,19 @@ fun ProfilesScreen(
         Column(
             modifier = Modifier.fillMaxWidth().padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(28.dp),
+            verticalArrangement = Arrangement.spacedBy(40.dp),
         ) {
-            BrandHeader(compact = true, tagline = null)
+            // The brand is the heading now (replaces the Netflix-style "¿Quién está viendo?").
+            BrandHeader()
 
-            Text(
-                text = "¿Quién está viendo?",
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.onBackground,
-            )
             val menuOpen = menuProfile != null
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                items(profiles) { profile ->
+            // A plain centered Row (not a LazyRow) keeps the cards centered and, since it does not
+            // clip, the focus zoom never gets cut off. Fine for the handful of profiles a user has.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterHorizontally),
+            ) {
+                profiles.forEach { profile ->
                     ProfileCard(
                         profile = profile,
                         focusable = !menuOpen,
@@ -80,9 +81,7 @@ fun ProfilesScreen(
                         onLongClick = { menuProfile = profile },
                     )
                 }
-                item {
-                    AddCard(focusable = !menuOpen, onClick = onAddProfile)
-                }
+                AddCard(focusable = !menuOpen, onClick = onAddProfile)
             }
             if (profiles.isNotEmpty()) {
                 Text(
@@ -191,35 +190,36 @@ private fun ProfileCard(
     Card(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = Modifier.width(190.dp).focusProperties { canFocus = focusable },
+        modifier = Modifier.width(230.dp).focusProperties { canFocus = focusable },
+        scale = CardDefaults.scale(focusedScale = 1.06f),
     ) {
         Box(
-            modifier = Modifier.fillMaxWidth().height(120.dp),
+            modifier = Modifier.fillMaxWidth().height(150.dp),
             contentAlignment = Alignment.Center,
         ) {
             // Letter avatar in a tinted circle.
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(88.dp)
                     .clip(CircleShape)
                     .background(colors.primary.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = profile.name.take(1).uppercase().ifBlank { "?" },
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.displaySmall,
                     color = colors.primary,
                 )
             }
         }
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = profile.name.ifBlank { profile.username },
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = colors.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -251,20 +251,29 @@ private fun AddCard(focusable: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Card(
         onClick = onClick,
-        modifier = Modifier.width(190.dp).focusProperties { canFocus = focusable },
+        modifier = Modifier.width(230.dp).focusProperties { canFocus = focusable },
+        scale = CardDefaults.scale(focusedScale = 1.06f),
     ) {
         Box(
-            modifier = Modifier.fillMaxWidth().height(120.dp),
+            modifier = Modifier.fillMaxWidth().height(150.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = "+", style = MaterialTheme.typography.displayMedium, color = colors.primary)
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(colors.primary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = "+", style = MaterialTheme.typography.displayMedium, color = colors.primary)
+            }
         }
         Text(
             text = "Añadir",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = colors.onSurface,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 16.dp),
         )
     }
 }
