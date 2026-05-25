@@ -14,6 +14,7 @@ import com.footballxtream.data.local.FavoriteFolderEntity
 import com.footballxtream.data.local.SettingsStore
 import com.footballxtream.model.ChannelFolder
 import com.footballxtream.model.ChannelGroup
+import com.footballxtream.model.Quality
 import com.footballxtream.model.QualityMode
 import com.footballxtream.player.PlaybackSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -188,8 +189,14 @@ class ChannelsViewModel(
         val byQuality = if (fixed == null) {
             folders
         } else {
+            // A channel with no quality tag (UNKNOWN) is unclassified, not "not this quality", so it
+            // stays visible under every fixed filter. Otherwise free lists whose channels carry no
+            // quality in the name (e.g. Free-TV) would look empty under SD/HD/FHD/4K.
             folders.filter { folder ->
-                folder.channels.any { it.availableQualities.contains(fixed) }
+                folder.channels.any {
+                    it.availableQualities.contains(fixed) ||
+                        it.availableQualities.contains(Quality.UNKNOWN)
+                }
             }
         }
 
